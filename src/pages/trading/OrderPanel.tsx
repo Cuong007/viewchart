@@ -42,6 +42,7 @@ export interface OrderPanelProps {
     [k: string]: unknown;
   };
   tick?: { bid: number; ask: number; timestamp: number };
+  isReplaying?: boolean;
   accountId: string | null;
   oneClick?: boolean;
   onToggleOneClick?: () => void;
@@ -69,6 +70,7 @@ function GenericOrderPanel({
   symbol,
   symbolInfo,
   tick,
+  isReplaying = false,
   accountId,
   oneClick,
   onToggleOneClick,
@@ -99,6 +101,10 @@ function GenericOrderPanel({
   const placeOrder = usePlaceOrder();
 
   const handleSubmit = () => {
+    if (isReplaying && !tick) {
+      toast.warning("Replay Price Unavailable", "Wait until a historical replay candle is loaded before placing an order.");
+      return;
+    }
     if (!isFeedConnected) {
       toast.warning("No Data Feed", "Cannot place orders while disconnected from the data feed");
       return;
@@ -138,6 +144,10 @@ function GenericOrderPanel({
     };
 
     if (orderType === "LIMIT" && price) input.price = parseFloat(price);
+    // Market orders in Bar Replay must execute at the replay cursor, never at the live quote.
+    if (isReplaying && orderType === "MARKET" && tick) {
+      input.executionPrice = (tick.bid + tick.ask) / 2;
+    }
     if (orderType === "STOP" && stopPrice) input.stopPrice = parseFloat(stopPrice);
     if (takeProfit) input.takeProfit = parseFloat(takeProfit) || undefined;
     if (stopLoss) input.stopLoss = parseFloat(stopLoss) || undefined;
