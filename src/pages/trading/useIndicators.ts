@@ -12,6 +12,7 @@ import {
   vwap,
   INDICATOR_REGISTRY,
   type IndicatorType,
+  type CustomIndicatorDefinition,
 } from "../../lib/indicators.ts";
 import { toIndicatorCandles } from "./utils.ts";
 import { CHART_COLORS } from "./constants.ts";
@@ -23,6 +24,8 @@ export function useIndicators(
   activeIndicators: IndicatorType[],
   isDark: boolean,
   indicatorParams: Record<IndicatorType, Record<string, number>>,
+  indicatorCodeOverrides: Partial<Record<IndicatorType, string>> = {},
+  customIndicators: CustomIndicatorDefinition[] = [],
 ): void {
   const indicatorSeriesRef = useRef<Map<string, ISeriesApi<"Line"> | ISeriesApi<"Histogram">>>(
     new Map(),
@@ -49,6 +52,22 @@ export function useIndicators(
       const config = INDICATOR_REGISTRY.find((r) => r.type === type);
       if (!config) continue;
       const params = { ...config.defaultParams, ...(indicatorParams[type] ?? {}) };
+      const customCode = indicatorCodeOverrides[type];
+      if (customCode?.trim()) {
+        try {
+          const calculate = new Function("candles", "params", `"use strict"; return (${customCode});`) as
+            (candles: typeof indCandles, params: Record<string, number>) => Array<{ time: number; value: number }>;
+          const points = calculate(indCandles, params);
+          if (!Array.isArray(points)) throw new Error("Code must return an array of { time, value }");
+          const series = chart.addLineSeries({ color: config.color, lineWidth: 2, priceScaleId: "right" });
+          series.setData(points.filter((p) => Number.isFinite(p?.time) && Number.isFinite(p?.value)).map((p) => ({ time: p.time as Time, value: p.value })));
+          indicatorSeriesRef.current.set(type, series);
+          continue;
+        } catch (error) {
+          console.error(`Custom indicator ${type} failed:`, error);
+          continue;
+        }
+      }
 
       switch (type) {
         case "SMA": {
@@ -200,7 +219,20 @@ export function useIndicators(
         }
       }
     }
+    for (const custom of customIndicators) {
+      try {
+        const calculate = new Function("candles", "params", `"use strict"; return (${custom.code});`) as
+          (candles: typeof indCandles, params: Record<string, number>) => Array<{ time: number; value: number }>;
+        const points = calculate(indCandles, {});
+        if (!Array.isArray(points)) continue;
+        const series = chart.addLineSeries({ color: custom.color || "#a78bfa", lineWidth: 2, priceScaleId: "right" });
+        series.setData(points.filter((p) => Number.isFinite(p?.time) && Number.isFinite(p?.value)).map((p) => ({ time: p.time as Time, value: p.value })));
+        indicatorSeriesRef.current.set(`custom:${custom.id}`, series);
+      } catch (error) {
+        console.error(`Custom indicator ${custom.name} failed:`, error);
+      }
+    }
     // chartRef/candleSeriesRef are stable refs; colors derived from isDark dep.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeIndicators, chartData, isDark, indicatorParams]);
+  }, [activeIndicators, chartData, isDark, indicatorParams, indicatorCodeOverrides, customIndicators]);
 }
