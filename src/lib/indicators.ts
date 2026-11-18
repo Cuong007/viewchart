@@ -12,7 +12,7 @@ export interface CandleData {
   volume?: number;
 }
 
-export interface CustomIndicatorDefinition { id: string; name: string; code: string; color: string; }
+export interface CustomIndicatorDefinition { id: string; name: string; code: string; color: string; enabled?: boolean; }
 
 export interface IndicatorPoint {
   time: number;
