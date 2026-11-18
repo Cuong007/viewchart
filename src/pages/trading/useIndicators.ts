@@ -238,7 +238,7 @@ export function useIndicators(
       if (custom.enabled !== true) continue;
       // Overlay modules (for example FVGIndicator) manage their own canvas and
       // chart lifecycle; they are mounted by ChartPanel, not as line series.
-      if (/\\bFVGIndicator\\b/.test(custom.code)) continue;
+      if (/\bFVGIndicator\b/.test(custom.code)) continue;
       try {
         const points = evaluateIndicatorCode(custom.code, indCandles, {}) as Array<{ time: number; value: number }>;
         if (!Array.isArray(points)) continue;
