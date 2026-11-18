@@ -322,11 +322,28 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
 
   const { data: positions = [] } = usePositions(activeAccountId);
   const { data: orders = [] } = useOrders(activeAccountId);
+  // Replay's candle close is authoritative for the position mark and floating P&L.
+  const replayMark = isReplaying && replayCandles?.length
+    ? replayCandles[replayCandles.length - 1]!.close
+    : null;
+  const displayPositions = useMemo(() => {
+    if (replayMark == null || !Number.isFinite(replayMark) || replayMark <= 0) return positions;
+    return positions.map((position) => {
+      if (position.symbolName !== selectedSymbol) return position;
+      const direction = position.side === "LONG" ? 1 : -1;
+      const contractSize = position.contractSize ?? 1;
+      return {
+        ...position,
+        currentPrice: replayMark,
+        unrealizedPnl: (replayMark - position.entryPrice) * position.quantity * contractSize * direction,
+      };
+    });
+  }, [positions, replayMark, selectedSymbol]);
   const positionPnl = useMemo(
-    () => positions.reduce((sum, position) => sum + (position.unrealizedPnl || 0), 0),
-    [positions],
+    () => displayPositions.reduce((sum, position) => sum + (position.unrealizedPnl || 0), 0),
+    [displayPositions],
   );
-  const chartPositions = chartPrefs.overlayPositionsOnChart ? positions : [];
+  const chartPositions = chartPrefs.overlayPositionsOnChart ? displayPositions : [];
   const chartOrders = chartPrefs.overlayPositionsOnChart ? orders : [];
 
   const { data: journalData, isLoading: journalLoading } = useJournalEntries(activeAccountId);
@@ -485,7 +502,7 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
 
     activeAccountId,
     account,
-    positions,
+    positions: displayPositions,
     orders,
     positionPnl,
     chartPositions,

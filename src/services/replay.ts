@@ -49,8 +49,8 @@ let session: SessionState | null = null;
 /** Symbol to play back when the caller does not name one. */
 const DEFAULT_SYMBOL = "BTCUSD";
 
-/** Enough 1m bars to cover a trading day with room to spare. */
-const SESSION_BAR_LIMIT = 2000;
+/** Large multi-day buffer; the DNSE adapter pages historical data up to its 50k cache. */
+const SESSION_BAR_LIMIT = 50_000;
 
 /**
  * Bars revealed before playback begins. Starting exactly at the first bar
