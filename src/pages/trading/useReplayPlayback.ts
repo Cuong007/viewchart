@@ -106,6 +106,7 @@ export function useReplayPlayback(accountId: string) {
       localCursorMsRef.current = null;
       cursorIndexRef.current = 0;
       stepAccumulatorRef.current = 0;
+      tickBufferRef.current = [];
     }
   }, [isReplaying]);
 
@@ -127,7 +128,7 @@ export function useReplayPlayback(accountId: string) {
       const buf = tickBufferRef.current;
       let idx = 0;
       while (idx < buf.length && (buf[idx]?.t ?? Infinity) <= replayCursorTimestamp) idx++;
-      cursorIndexRef.current = Math.max(0, Math.min(idx, buf.length - 1));
+      cursorIndexRef.current = Math.max(0, Math.min(idx - 1, buf.length - 1));
       stepAccumulatorRef.current = 0;
     }
   }, [replayCursorTimestamp]);
