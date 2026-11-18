@@ -59,6 +59,7 @@ export interface BottomPanelProps {
   onSaveCustomIndicator: (name: string, code: string) => void;
   onDeleteIndicator: (type: IndicatorType) => void;
   onDeleteCustomIndicator: (id: string) => void;
+  onToggleCustomIndicator: (id: string) => void;
   positions: Position[];
   orders: Order[];
   accountId: string | null;
@@ -102,6 +103,7 @@ export function BottomPanel({
   onSaveCustomIndicator,
   onDeleteIndicator,
   onDeleteCustomIndicator,
+  onToggleCustomIndicator,
 }: BottomPanelProps) {
   const isDemo = useAuthStore((s) => s.isDemo);
   const [editingIndicator, setEditingIndicator] = useState<IndicatorType | null>(null);
@@ -137,7 +139,7 @@ export function BottomPanel({
     // khiến parser báo lỗi dù file JavaScript hoàn toàn hợp lệ.
     let expressionError: unknown = null;
     try {
-      new Function("candles", "params", "return (" + editorCode + "\\n);");
+      new Function("candles", "params", "return (" + editorCode + "\n);");
     } catch (error) {
       expressionError = error;
       try {
@@ -422,7 +424,10 @@ export function BottomPanel({
             })}
             {customIndicators.map((item) => (
               <div key={item.id} className="rounded-lg border border-border p-3 text-xs space-y-2">
-                <div className="font-medium">{item.name}</div>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" checked={item.enabled === true} onChange={() => onToggleCustomIndicator(item.id)} />
+                  <span className="min-w-0 flex-1 font-medium">{item.name}</span>
+                </label>
                 <div className="text-muted-foreground">Custom · JavaScript</div>
                 <div className="flex justify-end gap-2">
                   <Button size="sm" variant="outline" onClick={() => beginEditCustom(item)}><Pencil className="h-3 w-3 mr-1" /> Sửa</Button>
