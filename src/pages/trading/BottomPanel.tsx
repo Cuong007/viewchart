@@ -240,7 +240,7 @@ export function BottomPanel({
             )}
           >
             <t.icon className="h-3 w-3" />
-            <span className="hidden md:inline">{t.label}</span>
+            <span className={t.key === "news" || t.key === "indicators" ? "text-[10px] md:text-xs" : "hidden md:inline"}>{t.label}</span>
             {t.count !== undefined && t.count > 0 && (
               <span className="bg-primary text-primary-foreground rounded-full px-1.5 text-[9px]">
                 {t.count}
