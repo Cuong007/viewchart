@@ -80,12 +80,12 @@ export function createDnseMarketData():MarketDataSource{
     const defaultSpan=Math.min(365,Math.max(14,Math.ceil(wanted*seconds/86400*3)));
     let fromSec=req.fromMs!=null?Math.floor(req.fromMs/1000):toSec-defaultSpan*86400;
     if(fromSec>=toSec)fromSec=toSec-seconds*wanted;
-    let collected:Candle[]=[],cursor=fromSec;
-    for(let page=0;page<8&&cursor<toSec;page++){
+    let collected:Candle[]=[],cursor=fromSec,pageTo=toSec;
+    for(let page=0;page<8&&cursor<pageTo;page++){
       let pageRows:Candle[]=[];let nextTime=0;let succeeded=false;
       for(const base of HISTORY_URLS){
         try{
-          const url=new globalThis.URL(base);url.search=new URLSearchParams({symbol:SYMBOL,resolution,from:String(cursor),to:String(toSec)}).toString();
+          const url=new globalThis.URL(base);url.search=new URLSearchParams({symbol:SYMBOL,resolution,from:String(cursor),to:String(pageTo)}).toString();
           const response=await fetch(url.toString(),{method:"GET",headers:{Accept:"application/json"},signal:AbortSignal.timeout(15000)});
           if(!response.ok)throw new Error("DNSE history HTTP "+response.status);
           const parsed=parseHistoryPayload(await response.json());pageRows=parsed.candles;nextTime=parsed.nextTime;succeeded=true;break;
@@ -95,9 +95,9 @@ export function createDnseMarketData():MarketDataSource{
       const normalizedPage=req.timeframe==="4h"?aggregate(pageRows,seconds):pageRows;
       collected=merge(collected,normalizedPage);
       const earliest=pageRows[0]!.time;
-      const next=nextTime>0?nextTime:earliest-seconds;
-      if(next<=cursor||earliest<=0||pageRows.length<2)break;
-      cursor=next;
+      const next=nextTime>0?nextTime:earliest;
+      if(next<=cursor||next>=pageTo||earliest<=0||pageRows.length<2)break;
+      pageTo=next;
       if(collected.length>=wanted&&req.fromMs==null)break;
     }
     if(collected.length){const merged=merge(history,collected);history.splice(0,history.length,...merged.slice(-50000));save();}
