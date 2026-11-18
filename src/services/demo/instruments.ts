@@ -31,22 +31,7 @@ export const DEMO_SYMBOLS: Symbol[] = [
   crypto("BNBUSD", "BNB", 0.01),
   crypto("XRPUSD", "XRP", 0.0001),
   crypto("ADAUSD", "Cardano", 0.0001),
-  {
-    ...crypto("PAXGUSD", "PAX Gold (1 oz)", 0.01),
-    category: "COMMODITIES",
-    maxLeverage: 20,
-  },
-  {
-    ...crypto("VN30F1M", "VN30F1M Futures", 0.1),
-    category: "INDICES",
-    maxLeverage: 20,
-  },
 ];
-
-/** Only instruments with bundled historical replay data are fed by demo/feed.ts. */
-export const DEMO_FEED_SYMBOLS: Symbol[] = DEMO_SYMBOLS.filter(
-  (s) => !["PAXGUSD", "VN30F1M"].includes(s.name),
-);
 
 export const DEMO_SYMBOL_NAMES = DEMO_SYMBOLS.map((s) => s.name);
 
