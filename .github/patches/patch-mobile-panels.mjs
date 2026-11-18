@@ -280,4 +280,31 @@ binance = binance.replace(
 );
 writeFileSync(binancePath, binance);
 
+
+
+// Improve the generic watchlist for touch devices: searchable display names,
+// visible touch quick-trade controls, and an explicit empty state.
+const watchlistPath = "src/pages/trading/WatchlistPanel.tsx";
+let watchlist = readFileSync(watchlistPath, "utf8");
+watchlist = watchlist.replace(
+  'if (filter && !s.name.toLowerCase().includes(filter.toLowerCase())) return false;',
+  'if (filter && !s.name.toLowerCase().includes(filter.toLowerCase()) && !(s.displayName || "").toLowerCase().includes(filter.toLowerCase())) return false;',
+);
+watchlist = watchlist.replace(
+  'className="hidden group-hover:flex flex-col gap-0.5 ml-1"',
+  'className="flex flex-col gap-0.5 ml-1 md:opacity-0 md:group-hover:opacity-100"',
+);
+watchlist = watchlist.replace(
+  '                className={cn(\n                  "shrink-0 mr-1",',
+  '                aria-label={isFav ? "Remove " + s.name + " from favorites" : "Add " + s.name + " to favorites"}\n                className={cn(\n                  "shrink-0 mr-1",',
+);
+const listAnchor = '        {filtered.map((s) => {';
+if (watchlist.includes(listAnchor) && !watchlist.includes('No instruments match your filter')) {
+  watchlist = watchlist.replace(
+    listAnchor,
+    '        {filtered.length === 0 && (\n          <div className="px-3 py-8 text-center text-xs text-muted-foreground">No instruments match your filter.</div>\n        )}\n        {filtered.map((s) => {',
+  );
+}
+writeFileSync(watchlistPath, watchlist);
+
 console.log("Applied OpenCharts mobile tools and Android network compatibility patches.");
