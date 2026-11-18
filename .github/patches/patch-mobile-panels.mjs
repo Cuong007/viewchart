@@ -240,7 +240,6 @@ bottomPanel = bottomPanel.replace(
   'max-h-[38vh] md:max-h-none',
 );
 writeFileSync(bottomPanelPath, bottomPanel);
-}
 
 // Normalize tick-size powers of ten to decimal precision (avoid 0.000099999999…).
 const symbolsPath = "src/hyperliquid/symbols.ts";
