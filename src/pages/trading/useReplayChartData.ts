@@ -103,7 +103,7 @@ export function useReplayChartData(accountId: string | null, timeframe: Timefram
   useEffect(() => {
     if (!isReplaying) clearReplayPrices();
     return () => {
-      if (!isReplaying) clearReplayPrices();
+      clearReplayPrices();
     };
   }, [isReplaying]);
 
