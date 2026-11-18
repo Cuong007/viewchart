@@ -33,7 +33,6 @@ const WS_BASE = "wss://stream.binance.com:9443/stream";
 /** Display name → Binance pair. USD here means USDT on Binance. */
 const SYMBOL_MAP: Record<string, { pair: string; label: string; tickSize: number }> = {
   BTCUSD: { pair: "BTCUSDT", label: "Bitcoin", tickSize: 0.01 },
-  PAXGUSD: { pair: "PAXGUSDT", label: "Gold · PAX Gold (1 troy oz)", tickSize: 0.01 },
   ETHUSD: { pair: "ETHUSDT", label: "Ethereum", tickSize: 0.01 },
   SOLUSD: { pair: "SOLUSDT", label: "Solana", tickSize: 0.01 },
   BNBUSD: { pair: "BNBUSDT", label: "BNB", tickSize: 0.01 },

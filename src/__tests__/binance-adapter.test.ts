@@ -16,8 +16,6 @@ const KLINE: BinanceKline = [
 describe("binance symbol mapping", () => {
   it("maps display names to Binance pairs and back", () => {
     expect(toBinancePair("BTCUSD")).toBe("BTCUSDT");
-    expect(toBinancePair("PAXGUSD")).toBe("PAXGUSDT");
-    expect(fromBinancePair("PAXGUSDT")).toBe("PAXGUSD");
     expect(fromBinancePair("BTCUSDT")).toBe("BTCUSD");
     expect(fromBinancePair("btcusdt")).toBe("BTCUSD");
   });
@@ -103,9 +101,9 @@ describe("createBinanceMarketData", () => {
   });
 
   it("reports only the symbols it was configured with", async () => {
-    const source = createBinanceMarketData({ symbols: ["BTCUSD", "ETHUSD", "PAXGUSD"] });
+    const source = createBinanceMarketData({ symbols: ["BTCUSD", "ETHUSD"] });
     const symbols = await source.getSymbols();
-    expect(symbols.map((s) => s.name)).toEqual(["BTCUSD", "ETHUSD", "PAXGUSD"]);
+    expect(symbols.map((s) => s.name)).toEqual(["BTCUSD", "ETHUSD"]);
     for (const s of symbols) expect(s.tickSize).toBeGreaterThan(0);
   });
 
