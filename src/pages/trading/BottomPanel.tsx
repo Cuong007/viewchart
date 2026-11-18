@@ -110,9 +110,14 @@ export function BottomPanel({
   const [editorName, setEditorName] = useState("");
   const [editorCode, setEditorCode] = useState("");
   const beginEditIndicator = (type: IndicatorType) => {
+    const templates: Partial<Record<IndicatorType, string>> = {
+      SMA: "(candles, params) => {\n  const period = params.period || 20;\n  const result = [];\n  for (let i = period - 1; i < candles.length; i++) {\n    const slice = candles.slice(i - period + 1, i + 1);\n    const value = slice.reduce((sum, candle) => sum + candle.close, 0) / period;\n    result.push({ time: candles[i].time, value });\n  }\n  return result;\n}",
+      EMA: "(candles, params) => {\n  const period = params.period || 20;\n  const k = 2 / (period + 1);\n  const result = [];\n  let value = candles.slice(0, period).reduce((sum, candle) => sum + candle.close, 0) / period;\n  for (let i = period - 1; i < candles.length; i++) {\n    if (i >= period) value = candles[i].close * k + value * (1 - k);\n    result.push({ time: candles[i].time, value });\n  }\n  return result;\n}",
+      RSI: "(candles, params) => {\n  const period = params.period || 14;\n  const result = [];\n  for (let i = period; i < candles.length; i++) {\n    let gain = 0, loss = 0;\n    for (let j = i - period + 1; j <= i; j++) {\n      const change = candles[j].close - candles[j - 1].close;\n      if (change > 0) gain += change; else loss -= change;\n    }\n    const rs = loss === 0 ? 100 : gain / loss;\n    result.push({ time: candles[i].time, value: 100 - 100 / (1 + rs) });\n  }\n  return result;\n}",
+    };
     setEditingIndicator(type); setEditingCustomId(null); setIsNewCustom(false);
     setEditorName(type);
-    setEditorCode(indicatorCodeOverrides[type] || "(candles, params) => {\n  // Return [{ time, value }]\n  return candles.map(c => ({ time: c.time, value: c.close }));\n}");
+    setEditorCode(indicatorCodeOverrides[type] || templates[type] || "(candles, params) => {\n  // Return [{ time, value }]\n  return candles.map(c => ({ time: c.time, value: c.close }));\n}");
     onTabChange("indicator-code");
   };
   const beginEditCustom = (item: CustomIndicatorDefinition) => {
@@ -421,7 +426,7 @@ export function BottomPanel({
             <textarea value={editorCode} onChange={(e) => setEditorCode(e.target.value)}
               placeholder="// Viết code chỉ báo tại đây. Ví dụ: (candles, params) => [{ time, value }]"
               spellCheck={false} className="flex-1 min-h-[150px] w-full resize-y rounded border border-border bg-background p-3 font-mono text-xs text-foreground outline-none focus:ring-1 focus:ring-primary" />
-            <div className="text-[10px] text-muted-foreground">Code phải trả về mảng { "{ time, value }" }. candles gồm time, open, high, low, close, volume.</div>
+            <div className="text-[10px] text-muted-foreground">Code phải trả về mảng { "{ time, value }" }. candles gồm time, open, high, low, close, volume. Chỉ chạy code do bạn tin cậy; code được thực thi trong ứng dụng.</div>
             <div className="flex justify-end gap-2">
               <Button size="sm" variant="outline" onClick={() => onTabChange("indicators")}>Hủy</Button>
               <Button size="sm" onClick={saveCode}>Lưu code</Button>
