@@ -10,7 +10,7 @@ import { api } from "../../services/api.ts";
 const MAX_TICKS_PER_FRAME = 10;
 
 /** How often to push replayCursorTimestamp to the Zustand store (ms). */
-const STORE_SYNC_MS = 250;
+const STORE_SYNC_MS = 100;
 
 /** How often to PATCH the server with the current cursor position (ms). */
 const SERVER_SYNC_MS = 2000;
@@ -69,7 +69,7 @@ function finishReplay(accountId: string, sessionDate: string | null, endMs: numb
 /**
  * Drives the client-side replay clock using requestAnimationFrame.
  *
- * - Advances replayCursorTimestamp at replaySpeed × real time.
+ * - Reveals one complete candle per second at 1x (2x = two candles/sec).
  * - Throttles Zustand writes to STORE_SYNC_MS to avoid per-frame re-renders.
  * - Debounces server PATCH to SERVER_SYNC_MS for cursor persistence.
  * - Advances up to MAX_TICKS_PER_FRAME tick indices per frame (chunked).
@@ -97,6 +97,8 @@ export function useReplayPlayback(accountId: string) {
   const nextTickIdxRef = useRef(0);
   const localCursorMsRef = useRef<number | null>(null);
   const lastFrameTimeRef = useRef<number | null>(null);
+  const stepAccumulatorRef = useRef(0);
+  const cursorIndexRef = useRef(0);
   const lastStoreSyncRef = useRef(0);
   const lastServerSyncRef = useRef(0);
   const rafIdRef = useRef<number | null>(null);
@@ -117,6 +119,8 @@ export function useReplayPlayback(accountId: string) {
     if (isReplaying) {
       localCursorMsRef.current = null;
       nextTickIdxRef.current = 0;
+      cursorIndexRef.current = 0;
+      stepAccumulatorRef.current = 0;
     }
   }, [isReplaying]);
 
@@ -139,6 +143,8 @@ export function useReplayPlayback(accountId: string) {
       let idx = 0;
       while (idx < buf.length && (buf[idx]?.t ?? Infinity) <= replayCursorTimestamp) idx++;
       nextTickIdxRef.current = idx;
+      cursorIndexRef.current = Math.max(0, idx - 1);
+      stepAccumulatorRef.current = 0;
     }
   }, [replayCursorTimestamp]);
 
@@ -168,23 +174,25 @@ export function useReplayPlayback(accountId: string) {
       // Cap real delta to 100ms to handle tab-switch gaps gracefully
       const realDeltaMs = Math.min(now - lastFrameTimeRef.current, 100);
       lastFrameTimeRef.current = now;
-      const replayDeltaMs = realDeltaMs * speedRef.current;
-
       const buf = tickBufferRef.current;
       if (buf.length === 0) return true; // session data still loading
 
-      const endMs = buf[buf.length - 1]!.t;
-      // Initialise cursor to buffer start on the first frame of a session
-      const prevCursorMs = localCursorMsRef.current ?? buf[0]!.t;
-      const newCursorMs = Math.min(prevCursorMs + replayDeltaMs, endMs);
-      localCursorMsRef.current = newCursorMs;
+      // 1x reveals one complete candle per second, independent of candle timeframe.
+      stepAccumulatorRef.current += realDeltaMs * speedRef.current;
+      const stepsDue = Math.min(Math.floor(stepAccumulatorRef.current / 1000), MAX_TICKS_PER_FRAME);
+      if (stepsDue > 0) {
+        stepAccumulatorRef.current -= stepsDue * 1000;
+        cursorIndexRef.current = Math.min(cursorIndexRef.current + stepsDue, buf.length - 1);
+        nextTickIdxRef.current = Math.max(nextTickIdxRef.current, cursorIndexRef.current + 1);
+      }
 
-      advanceTickIndex(buf, nextTickIdxRef, newCursorMs);
+      const endMs = buf[buf.length - 1]!.t;
+      const newCursorMs = buf[cursorIndexRef.current]?.t ?? buf[0]!.t;
+      localCursorMsRef.current = newCursorMs;
       syncCursorToStore(now, lastStoreSyncRef, newCursorMs);
       syncCursorToServer(now, lastServerSyncRef, accountId, sessionDateRef.current, newCursorMs);
 
-      // Auto-stop at end of buffer
-      if (newCursorMs >= endMs) {
+      if (cursorIndexRef.current >= buf.length - 1) {
         isActiveRef.current = false;
         finishReplay(accountId, sessionDateRef.current, endMs);
         return false;
