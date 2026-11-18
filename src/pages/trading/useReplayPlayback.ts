@@ -124,15 +124,20 @@ export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
         else grouped.set(bucket, { t: bucket + interval - 60_000, o: prev.o, h: Math.max(prev.h, bar.h), l: Math.min(prev.l, bar.l), c: bar.c, v: prev.v + bar.v });
       }
       playbackBarsRef.current = [...grouped.values()];
-      if (previousTimeframeRef.current !== timeframe) {
-        const cursor = useTradingStore.getState().replayCursorTimestamp;
+      // Preserve the exact playback cursor when the 15s query refreshes its
+      // buffer. Resetting to index 0 here made the timeline jump and prevented
+      // reliable continuation as fresh candles were appended.
+      const storedCursor = useTradingStore.getState().replayCursorTimestamp;
+      const cursor = localCursorMsRef.current ?? storedCursor;
+      if (cursor != null) {
         let idx = 0;
-        while (idx < playbackBarsRef.current.length && (playbackBarsRef.current[idx]?.t ?? Infinity) <= (cursor ?? -Infinity)) idx++;
-        cursorIndexRef.current = Math.max(0, idx - 1);
-        localCursorMsRef.current = playbackBarsRef.current[cursorIndexRef.current]?.t ?? null;
+        while (idx + 1 < playbackBarsRef.current.length
+          && (playbackBarsRef.current[idx + 1]?.t ?? Infinity) <= cursor) idx++;
+        cursorIndexRef.current = idx;
+        localCursorMsRef.current = playbackBarsRef.current[idx]?.t ?? null;
       } else {
-        cursorIndexRef.current = 0;
-        localCursorMsRef.current = null;
+        cursorIndexRef.current = Math.min(30, Math.max(0, playbackBarsRef.current.length - 1));
+        localCursorMsRef.current = playbackBarsRef.current[cursorIndexRef.current]?.t ?? null;
       }
       previousTimeframeRef.current = timeframe;
       stepAccumulatorRef.current = 0;
@@ -203,12 +208,11 @@ export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
 
       if (cursorIndexRef.current >= lastIndex) {
         const latestBarMs = buf[lastIndex]?.t ?? 0;
-        const caughtLiveEdge = latestBarMs >= Date.now() - 120_000;
-        // A closed market may have no new bars; stop after the buffer has stayed
-        // unchanged across two polling windows instead of stalling forever.
-        const bufferSettled = lastBufferGrowthAtRef.current > 0
-          && Date.now() - lastBufferGrowthAtRef.current >= 30_000;
-        if (caughtLiveEdge || bufferSettled) {
+        // Candle timestamps are bar-open times. Finish only when the replay
+        // cursor has reached a candle from the current live minute; never stop
+        // merely because historical data has not grown for 30 seconds.
+        const caughtLiveEdge = latestBarMs >= Math.floor(Date.now() / 60_000) * 60_000 - 60_000;
+        if (caughtLiveEdge) {
           isActiveRef.current = false;
           finishReplay(accountId, sessionDateRef.current, newCursorMs);
           return false;
