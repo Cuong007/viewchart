@@ -433,6 +433,7 @@ if (!bottom.includes("TradingViewTimeline")) {
   );
   const feedStart = bottom.indexOf("// ── News Feed ────────────────────────────────────────────────");
   if (feedStart < 0) throw new Error("Could not find bottom-panel news feed.");
+  bottom = bottom.replace('import { MOCK_EVENTS, MOCK_NEWS } from "./constants.ts";', 'import { MOCK_EVENTS } from "./constants.ts";');
   bottom = bottom.slice(0, feedStart) + `// ── Live News Feed ───────────────────────────────────────────
 function NewsFeed() {
   return (
