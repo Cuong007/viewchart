@@ -27,7 +27,7 @@ import type { Candle, Symbol } from "../../src/services/schemas.ts";
  *     `/api/v3/exchangeInfo` and derive tick sizes from the filters.
  */
 
-const REST_BASE = "https://api.binance.com/api/v3";
+const REST_BASE = "https://data-api.binance.vision/api/v3";
 const WS_BASE = "wss://stream.binance.com:9443/stream";
 
 /** Display name → Binance pair. USD here means USDT on Binance. */
@@ -147,6 +147,41 @@ export function createBinanceMarketData(options: BinanceOptions = {}): MarketDat
   let reconnectAttempt = 0;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let closedByUs = false;
+  let pollTimer: ReturnType<typeof setInterval> | null = null;
+  let pollInFlight = false;
+
+  const stopPolling = () => {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = null;
+  };
+
+  const pollQuotes = async () => {
+    if (pollInFlight || closedByUs) return;
+    pollInFlight = true;
+    try {
+      const results = await Promise.all(names.map(async (name) => {
+        const pair = toBinancePair(name);
+        if (!pair) return false;
+        const response = await doFetch(`${REST_BASE}/ticker/bookTicker?symbol=${pair}`);
+        if (!response.ok) return false;
+        const quote = await response.json() as { bidPrice?: string; askPrice?: string };
+        if (quote.bidPrice == null || quote.askPrice == null) return false;
+        emit({ type: "tick", symbol: name, bid: Number(quote.bidPrice), ask: Number(quote.askPrice), timestamp: Date.now() });
+        return true;
+      }));
+      setState(results.some(Boolean) ? "connected" : "reconnecting");
+    } catch {
+      setState("reconnecting");
+    } finally {
+      pollInFlight = false;
+    }
+  };
+
+  const startPolling = () => {
+    if (pollTimer || closedByUs) return;
+    void pollQuotes();
+    pollTimer = setInterval(() => void pollQuotes(), 3000);
+  };
 
   const setState = (next: ConnectionState) => {
     if (state === next) return;
@@ -178,6 +213,7 @@ export function createBinanceMarketData(options: BinanceOptions = {}): MarketDat
     socket = new SocketImpl(buildStreamUrl(names));
 
     socket.onopen = () => {
+      stopPolling();
       reconnectAttempt = 0;
       setState("connected");
     };
@@ -212,6 +248,7 @@ export function createBinanceMarketData(options: BinanceOptions = {}): MarketDat
       // Exponential backoff, capped — Binance drops idle sockets every 24h and
       // rate-limits reconnect storms.
       setState("reconnecting");
+      startPolling();
       const delay = Math.min(30_000, 1_000 * 2 ** reconnectAttempt);
       reconnectAttempt += 1;
       reconnectTimer = setTimeout(open, delay);
@@ -270,6 +307,7 @@ export function createBinanceMarketData(options: BinanceOptions = {}): MarketDat
     disconnect: () => {
       closedByUs = true;
       if (reconnectTimer) clearTimeout(reconnectTimer);
+      stopPolling();
       reconnectTimer = null;
       socket?.close();
       socket = null;

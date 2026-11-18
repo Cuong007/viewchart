@@ -24,6 +24,10 @@ export const HL_CONNECT_ORIGINS: readonly string[] = [
   "wss://api.hyperliquid-testnet.xyz",
   "https://arb1.arbitrum.io",
   "https://sepolia-rollup.arbitrum.io",
+  "https://api.binance.com",
+  "https://data-api.binance.vision",
+  "https://stream.binance.com:9443",
+  "wss://stream.binance.com:9443",
 ];
 
 export interface CspOptions {
@@ -41,7 +45,7 @@ export function originOf(url: string | undefined): string | undefined {
   if (!v) return undefined;
   try {
     const u = new URL(v);
-    return u.protocol === "https:" || u.protocol === "http:" ? u.origin : undefined;
+    return ["https:", "http:", "wss:", "ws:"].includes(u.protocol) ? u.origin : undefined;
   } catch {
     return undefined;
   }
