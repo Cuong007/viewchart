@@ -85,7 +85,7 @@ export function createDnseMarketData():MarketDataSource{
       let pageRows:Candle[]=[];let nextTime=0;let succeeded=false;
       for(const base of HISTORY_URLS){
         try{
-          const url=new URL(base);url.search=new URLSearchParams({symbol:SYMBOL,resolution,from:String(cursor),to:String(toSec)}).toString();
+          const url=new globalThis.URL(base);url.search=new URLSearchParams({symbol:SYMBOL,resolution,from:String(cursor),to:String(toSec)}).toString();
           const response=await fetch(url.toString(),{method:"GET",headers:{Accept:"application/json"},signal:AbortSignal.timeout(15000)});
           if(!response.ok)throw new Error("DNSE history HTTP "+response.status);
           const parsed=parseHistoryPayload(await response.json());pageRows=parsed.candles;nextTime=parsed.nextTime;succeeded=true;break;
