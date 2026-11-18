@@ -1087,6 +1087,7 @@ export function ChartPanel({
   timeframe,
   isDark,
   activeIndicators,
+  indicatorParams,
   drawingTool,
   drawings,
   onAddDrawing,
