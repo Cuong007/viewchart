@@ -58,6 +58,10 @@ jobs:
           # our maintained feature files afterwards so replay/indicator changes
           # are actually included in the APK instead of being silently discarded.
           cp -a /tmp/viewchart-overrides/. ./
+          grep -q "BAR-BASED replay" src/pages/trading/useReplayPlayback.ts
+          grep -q 'key: "indicators"' src/pages/trading/BottomPanel.tsx
+          grep -q 'tab === "indicators"' src/pages/trading/BottomPanel.tsx
+          grep -q 'onIndicatorParamChange={updateIndicatorParam}' src/pages/TradingPage.tsx
 
       - name: Set up Java
         uses: actions/setup-java@v4
