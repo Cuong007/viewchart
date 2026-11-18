@@ -251,6 +251,8 @@ export function TradingPage() {
               isDark={isDark}
               activeIndicators={activeIndicators}
               indicatorParams={indicatorParams}
+              indicatorCodeOverrides={indicatorCodeOverrides}
+              customIndicators={customIndicators}
               drawingTool={drawingTool}
               drawings={drawings}
               onAddDrawing={addDrawing}
