@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { MobileAccountBar, MobileTradingPanel } from "../components/MobileTradingPanel.tsx";
 import { NewsFeed as MarketNewsFeed } from "../components/TradingPowerFeatures.tsx";
 import { TradingViewTechnicalAnalysis } from "../components/TradingViewWidgets.tsx";
-import type { CustomIndicatorDefinition, IndicatorType } from "../lib/indicators.ts";
+import type { IndicatorType } from "../lib/indicators.ts";
 import { safeStorage } from "../lib/safe-storage.ts";
 import type { PlaceOrderInput } from "../services/schemas.ts";
 import { updateChartPreferences } from "../hooks/useChartPreferences.ts";
@@ -95,38 +95,8 @@ export function TradingPage() {
   // ── Layout state ──
   const [showIndicatorMenu, setShowIndicatorMenu] = useState(false);
   const [bottomTab, setBottomTab] = useState<
-    "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators" | "indicator-code"
+    "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators"
   >("positions");
-  const [indicatorCodeOverrides, setIndicatorCodeOverrides] = useState<Partial<Record<IndicatorType, string>>>(() => {
-    try { return JSON.parse(safeStorage.getItem("opencharts_indicator_code") || "{}"); } catch { return {}; }
-  });
-  const [customIndicators, setCustomIndicators] = useState<CustomIndicatorDefinition[]>(() => {
-    try { return JSON.parse(safeStorage.getItem("opencharts_custom_indicators") || "[]"); } catch { return []; }
-  });
-  const saveIndicatorCode = (type: IndicatorType, code: string) => {
-    setIndicatorCodeOverrides((prev) => {
-      const next = { ...prev, [type]: code };
-      safeStorage.setItem("opencharts_indicator_code", JSON.stringify(next));
-      return next;
-    });
-  };
-  const saveCustomIndicator = (name: string, code: string) => {
-    setCustomIndicators((prev) => {
-      const next = [...prev, { id: crypto.randomUUID(), name: name.trim() || "Custom Indicator", code, color: "#a78bfa" }];
-      safeStorage.setItem("opencharts_custom_indicators", JSON.stringify(next));
-      return next;
-    });
-  };
-  const deleteCustomIndicator = (id: string) => {
-    setCustomIndicators((prev) => {
-      const next = prev.filter((item) => item.id !== id);
-      safeStorage.setItem("opencharts_custom_indicators", JSON.stringify(next));
-      return next;
-    });
-  };
-  const deleteIndicator = (type: IndicatorType) => {
-    if (activeIndicators.includes(type)) toggleIndicator(type);
-  };
   const [rightPanel, setRightPanel] = useState<
     "order" | "dom" | "watchlist" | "news" | "tv-analysis"
   >("order");
@@ -251,8 +221,6 @@ export function TradingPage() {
               isDark={isDark}
               activeIndicators={activeIndicators}
               indicatorParams={indicatorParams}
-              indicatorCodeOverrides={indicatorCodeOverrides}
-              customIndicators={customIndicators}
               drawingTool={drawingTool}
               drawings={drawings}
               onAddDrawing={addDrawing}
@@ -314,12 +282,6 @@ export function TradingPage() {
             onToggleIndicator={toggleIndicator}
             indicatorParams={indicatorParams}
             onIndicatorParamChange={updateIndicatorParam}
-            indicatorCodeOverrides={indicatorCodeOverrides}
-            customIndicators={customIndicators}
-            onSaveIndicatorCode={saveIndicatorCode}
-            onSaveCustomIndicator={saveCustomIndicator}
-            onDeleteIndicator={deleteIndicator}
-            onDeleteCustomIndicator={deleteCustomIndicator}
             journalEntries={journalEntries}
             journalLoading={journalLoading}
             onCreateJournal={createJournal}

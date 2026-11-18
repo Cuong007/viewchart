@@ -38,7 +38,7 @@ import { CrosshairHighlightPrimitive } from "../../lib/chart-plugins/highlight-b
 import { SessionBreaks } from "../../lib/chart-plugins/session-breaks/session-breaks.ts";
 import { SessionHighlighting } from "../../lib/chart-plugins/session-highlighting/session-highlighting.ts";
 import { TooltipPrimitive } from "../../lib/chart-plugins/tooltip/tooltip.ts";
-import type { CustomIndicatorDefinition, IndicatorType } from "../../lib/indicators.ts";
+import type { IndicatorType } from "../../lib/indicators.ts";
 import { cn } from "../../lib/utils.ts";
 import { api } from "../../services/api.ts";
 import { queryKeys } from "../../services/queries.ts";
@@ -211,8 +211,6 @@ export interface ChartPanelProps {
   isDark: boolean;
   activeIndicators: IndicatorType[];
   indicatorParams?: Record<IndicatorType, Record<string, number>>;
-  indicatorCodeOverrides?: Partial<Record<IndicatorType, string>>;
-  customIndicators?: CustomIndicatorDefinition[];
   drawingTool: DrawingTool;
   drawings: DrawingLine[];
   onAddDrawing: (d: DrawingLine) => void;
@@ -1090,8 +1088,6 @@ export function ChartPanel({
   isDark,
   activeIndicators,
   indicatorParams,
-  indicatorCodeOverrides,
-  customIndicators,
   drawingTool,
   drawings,
   onAddDrawing,
@@ -1424,7 +1420,7 @@ export function ChartPanel({
     [onAddDrawing, pipDigits, timeframe, selectedSymbol],
   );
 
-  useIndicators(chartRef, candleSeriesRef, chartData, activeIndicators, isDark, indicatorParams ?? {} as Record<IndicatorType, Record<string, number>>, indicatorCodeOverrides, customIndicators);
+  useIndicators(chartRef, candleSeriesRef, chartData, activeIndicators, isDark, indicatorParams ?? {} as Record<IndicatorType, Record<string, number>>);
 
   // ── Replay trade event markers ─────────────────────────────
   useEffect(() => {
