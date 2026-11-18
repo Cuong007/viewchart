@@ -332,14 +332,14 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
       const normalizeSymbol = (value: string) => value.toUpperCase().replace(/[^A-Z0-9]/g, "");
       if (normalizeSymbol(position.symbolName) !== normalizeSymbol(selectedSymbol)) return position;
       const direction = position.side === "LONG" || position.side === "BUY" ? 1 : -1;
-      const contractSize = position.contractSize ?? symbolInfo?.contractSize ?? 1;
+      const contractSize = position.contractSize ?? symbols.find((item) => normalizeSymbol(item.name) === normalizeSymbol(position.symbolName))?.contractSize ?? 1;
       return {
         ...position,
         currentPrice: replayMark,
         unrealizedPnl: (replayMark - position.entryPrice) * position.quantity * contractSize * direction,
       };
     });
-  }, [positions, replayMark, selectedSymbol, symbolInfo?.contractSize]);
+  }, [positions, replayMark, selectedSymbol, symbols]);
   const positionPnl = useMemo(
     () => displayPositions.reduce((sum, position) => sum + (position.unrealizedPnl || 0), 0),
     [displayPositions],
