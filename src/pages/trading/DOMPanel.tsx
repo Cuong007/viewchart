@@ -41,29 +41,52 @@ function BinanceDOMPanel({ symbol }: { symbol: string }) {
         if (active) setConnected(false);
       }
     };
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let reconnectDelay = 1000;
+    const connect = () => {
+      if (!active) return;
+      try {
+        socket = new WebSocket("wss://stream.binance.com:9443/ws/" + pair + "@depth20@100ms");
+        socket.onopen = () => {
+          if (!active) return;
+          reconnectDelay = 1000;
+          setConnected(true);
+        };
+        socket.onmessage = (event) => {
+          try {
+            const data = JSON.parse(String(event.data)) as BinanceDepth;
+            if (active && Array.isArray(data.bids) && Array.isArray(data.asks)) {
+              setBook({ bids: data.bids, asks: data.asks, lastUpdateId: data.lastUpdateId });
+            }
+          } catch { /* Ignore malformed depth frames. */ }
+        };
+        socket.onerror = () => {
+          if (active) setConnected(false);
+          socket?.close();
+        };
+        socket.onclose = () => {
+          if (!active) return;
+          setConnected(false);
+          reconnectTimer = setTimeout(connect, reconnectDelay);
+          reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+        };
+      } catch {
+        if (active) {
+          setConnected(false);
+          reconnectTimer = setTimeout(connect, reconnectDelay);
+          reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+        }
+      }
+    };
     void loadSnapshot();
-    try {
-      socket = new WebSocket("wss://stream.binance.com:9443/ws/" + pair + "@depth20@100ms");
-      socket.onopen = () => { if (active) setConnected(true); };
-      socket.onmessage = (event) => {
-        try {
-          const data = JSON.parse(String(event.data)) as BinanceDepth;
-          if (active && Array.isArray(data.bids) && Array.isArray(data.asks)) {
-            setBook({ bids: data.bids, asks: data.asks, lastUpdateId: data.lastUpdateId });
-          }
-        } catch { /* Ignore malformed depth frames. */ }
-      };
-      socket.onerror = () => { if (active) setConnected(false); };
-      socket.onclose = () => { if (active) setConnected(false); };
-    } catch {
-      setConnected(false);
-    }
+    connect();
     poll = setInterval(() => {
       if (!socket || socket.readyState !== WebSocket.OPEN) void loadSnapshot();
     }, 3000);
     return () => {
       active = false;
       if (poll) clearInterval(poll);
+      if (reconnectTimer) clearTimeout(reconnectTimer);
       socket?.close();
     };
   }, [pair]);
