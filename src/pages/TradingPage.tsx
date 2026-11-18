@@ -215,7 +215,7 @@ export function TradingPage() {
             <ChartPanel
               candles={replayCandles ?? candles ?? []}
               selectedSymbol={selectedSymbol}
-              timeframe={replayCandles ? "1m" : timeframe}
+              timeframe={timeframe}
               isDark={isDark}
               activeIndicators={activeIndicators}
               drawingTool={drawingTool}
