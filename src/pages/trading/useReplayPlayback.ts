@@ -19,19 +19,6 @@ type TickBar = { t: number; o: number; h: number; l: number; c: number; v: numbe
 
 type MutableRef<T> = { current: T };
 
-/** Advance the tick index up to the cursor, chunked to MAX_TICKS_PER_FRAME. */
-function advanceTickIndex(buf: TickBar[], idxRef: MutableRef<number>, cursorMs: number): void {
-  let chunk = 0;
-  while (
-    idxRef.current < buf.length &&
-    (buf[idxRef.current]?.t ?? Infinity) <= cursorMs &&
-    chunk < MAX_TICKS_PER_FRAME
-  ) {
-    idxRef.current++;
-    chunk++;
-  }
-}
-
 /** Throttled store write (drives scrubber + HUD timestamp). */
 function syncCursorToStore(now: number, lastSyncRef: MutableRef<number>, cursorMs: number): void {
   if (now - lastSyncRef.current < STORE_SYNC_MS) return;
@@ -94,7 +81,6 @@ export function useReplayPlayback(accountId: string) {
   const speedRef = useRef(replaySpeed);
   const sessionDateRef = useRef(replaySessionDate);
   const tickBufferRef = useRef<TickBar[]>([]);
-  const nextTickIdxRef = useRef(0);
   const cursorIndexRef = useRef(0);
   const stepAccumulatorRef = useRef(0);
   const localCursorMsRef = useRef<number | null>(null);
@@ -118,7 +104,6 @@ export function useReplayPlayback(accountId: string) {
   useEffect(() => {
     if (isReplaying) {
       localCursorMsRef.current = null;
-      nextTickIdxRef.current = 0;
       cursorIndexRef.current = 0;
       stepAccumulatorRef.current = 0;
     }
@@ -142,7 +127,6 @@ export function useReplayPlayback(accountId: string) {
       const buf = tickBufferRef.current;
       let idx = 0;
       while (idx < buf.length && (buf[idx]?.t ?? Infinity) <= replayCursorTimestamp) idx++;
-      nextTickIdxRef.current = idx;
       cursorIndexRef.current = Math.max(0, Math.min(idx, buf.length - 1));
       stepAccumulatorRef.current = 0;
     }
@@ -190,7 +174,6 @@ export function useReplayPlayback(accountId: string) {
       const endMs = buf[buf.length - 1]!.t;
       const newCursorMs = buf[cursorIndexRef.current]?.t ?? buf[0]!.t;
       localCursorMsRef.current = newCursorMs;
-      nextTickIdxRef.current = cursorIndexRef.current + 1;
       syncCursorToStore(now, lastStoreSyncRef, newCursorMs);
       syncCursorToServer(now, lastServerSyncRef, accountId, sessionDateRef.current, newCursorMs);
 
