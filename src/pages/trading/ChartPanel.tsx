@@ -1430,7 +1430,7 @@ export function ChartPanel({
   useIndicators(chartRef, candleSeriesRef, chartData, activeIndicators, isDark, indicatorParams ?? {} as Record<IndicatorType, Record<string, number>>, indicatorCodeOverrides, customIndicators);
 
   const fvgDefinition = customIndicators?.find(
-    (item) => item.enabled === true && /\bFVGIndicator\b/.test(item.code),
+    (item) => item.enabled === true && /\\bFVGIndicator\\b/.test(item.code),
   );
   useEffect(() => {
     const chart = chartRef.current;
@@ -1443,7 +1443,7 @@ export function ChartPanel({
         .replace("root.requestAnimationFrame(loop);", "S.raf = root.requestAnimationFrame(loop);")
         .replace(
           "const api = { init, update, setConfig, config: CFG, _compute: compute, _render: render, _S: S };",
-          "function destroy() { if (S.raf) root.cancelAnimationFrame(S.raf); if (S.canvas && S.canvas.parentNode) S.canvas.parentNode.removeChild(S.canvas); S.canvas = null; S.ctx = null; S.chart = null; S.series = null; S.container = null; }" + String.fromCharCode(10) + "  const api = { init, update, setConfig, destroy, config: CFG, _compute: compute, _render: render, _S: S };",
+          "function destroy() { if (S.raf) root.cancelAnimationFrame(S.raf); if (S.canvas && S.canvas.parentNode) S.canvas.parentNode.removeChild(S.canvas); S.canvas = null; S.ctx = null; S.chart = null; S.series = null; S.container = null; }\\n  const api = { init, update, setConfig, destroy, config: CFG, _compute: compute, _render: render, _S: S };",
         );
       new Function("window", "globalThis", "document", source)(window, window, document);
       const api = (window as Window & { FVGIndicator?: {
@@ -1453,8 +1453,6 @@ export function ChartPanel({
       } }).FVGIndicator;
       if (!api) throw new Error("Không khởi tạo được FVGIndicator");
       api.init({ chart, series, container, rightOffset: 12 });
-      // The supplied script disables ordinary FVG by default; enable it here.
-      (api as typeof api & { setConfig?: (patch: Record<string, unknown>) => void }).setConfig?.({ mothuong: true });
       fvgApiRef.current = api;
       return () => {
         api.destroy?.();
