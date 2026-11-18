@@ -189,8 +189,8 @@ function BinanceDOMPanel({ symbol }: { symbol: string }) {
   const insertAt = 'function SimulatedDOMPanel(';
   if (!dom.includes(insertAt)) throw new Error("Could not find DOM component insertion point.");
   dom = dom.replace(insertAt, component + "\n" + insertAt);
-  const simulatedIndex = dom.indexOf("\\nfunction SimulatedDOMPanel(");
-  if (simulatedIndex >= 0) dom = dom.slice(0, simulatedIndex) + "\\n";
+  const simulatedIndex = dom.indexOf("\nfunction SimulatedDOMPanel(");
+  if (simulatedIndex >= 0) dom = dom.slice(0, simulatedIndex) + "\n";
   dom = dom.replace('import { lazy, Suspense, useEffect, useMemo, useState } from "react";', 'import { lazy, Suspense, useEffect, useState } from "react";');
   dom = dom.replace('import { formatNumber, cn } from "../../lib/utils.ts";', 'import { formatNumber } from "../../lib/utils.ts";');
   writeFileSync(domPath, dom);
