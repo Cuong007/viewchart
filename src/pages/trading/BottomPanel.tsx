@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Activity, BookOpen, Clock, Globe, History, Newspaper, TrendingUp } from "lucide-react";
+import { BookOpen, Clock, Globe, History, Newspaper, TrendingUp } from "lucide-react";
 import { useAuthStore } from "../../services/store.tsx";
 import { useTradingStore } from "../../services/store.tsx";
 import {
@@ -29,7 +29,6 @@ import { OrdersTable } from "./OrdersTable.tsx";
 import { computeLivePnl, computeLivePrice } from "../../lib/livePnl.ts";
 import { safeStorage } from "../../lib/safe-storage.ts";
 import { isHyperliquidMode } from "../../hyperliquid/ui/mode.ts";
-import { INDICATOR_REGISTRY, type IndicatorType } from "../../lib/indicators.ts";
 
 type TradingActionError = {
   error?: { message?: string };
@@ -47,8 +46,8 @@ function getErrorMessage(error: unknown): string {
 }
 
 export interface BottomPanelProps {
-  tab: "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators";
-  onTabChange: (t: "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators") => void;
+  tab: "positions" | "orders" | "history" | "journal" | "calendar" | "news";
+  onTabChange: (t: "positions" | "orders" | "history" | "journal" | "calendar" | "news") => void;
   positions: Position[];
   orders: Order[];
   accountId: string | null;
@@ -63,10 +62,6 @@ export interface BottomPanelProps {
   onDeleteJournal: (id: string) => void;
   height?: number;
   isFeedConnected?: boolean;
-  activeIndicators: IndicatorType[];
-  indicatorParams: Record<string, Record<string, number>>;
-  onToggleIndicator: (type: IndicatorType) => void;
-  onIndicatorParamChange: (type: IndicatorType, key: string, value: number) => void;
 }
 
 export function BottomPanel({
@@ -86,10 +81,6 @@ export function BottomPanel({
   onDeleteJournal,
   height = 220,
   isFeedConnected = true,
-  activeIndicators,
-  indicatorParams,
-  onToggleIndicator,
-  onIndicatorParamChange,
 }: BottomPanelProps) {
   const isDemo = useAuthStore((s) => s.isDemo);
   const cancelOrder = useCancelOrder();
@@ -214,7 +205,6 @@ export function BottomPanel({
     },
     { key: "calendar", label: "Calendar", icon: Globe },
     { key: "news", label: "News", icon: Newspaper },
-    { key: "indicators", label: "Indicators", icon: Activity },
   ];
   // The calendar and news tabs are sample data; a live broker must not show it.
   const visibleTabs = isHyperliquidMode()
@@ -323,33 +313,6 @@ export function BottomPanel({
         )}
         {tab === "calendar" && <EconomicCalendar />}
         {tab === "news" && <NewsFeed />}
-        {tab === "indicators" && (
-          <div className="h-full overflow-y-auto p-2 space-y-1">
-            <div className="text-[10px] text-muted-foreground px-1 pb-1">Chạm vào chỉ báo để bật/tắt. Mở rộng thông số để chỉnh giống bảng cấu hình TradingView.</div>
-            {INDICATOR_REGISTRY.map((item) => {
-              const enabled = activeIndicators.includes(item.type);
-              const params = indicatorParams[item.type] ?? item.defaultParams;
-              return (
-                <details key={item.type} className="rounded border border-border/70 bg-card">
-                  <summary className="flex items-center gap-2 px-2 py-2 cursor-pointer list-none">
-                    <input aria-label={`Enable ${item.label}`} type="checkbox" checked={enabled} onChange={() => onToggleIndicator(item.type)} onClick={(event) => event.stopPropagation()} />
-                    <span className="flex-1 text-xs font-medium">{item.label}</span>
-                    <span className="text-[9px] text-muted-foreground uppercase">{item.pane === "overlay" ? "Overlay" : "Pane"}</span>
-                    <span className="text-[10px] text-muted-foreground">{enabled ? "Đang bật" : "Thêm"}</span>
-                  </summary>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 px-2 pb-2">
-                    {Object.entries(item.defaultParams).map(([key, defaultValue]) => (
-                      <label key={key} className="flex flex-col gap-1 text-[10px] text-muted-foreground">
-                        <span>{key === "stdDev" ? "Std Dev" : key === "kPeriod" ? "%K Period" : key === "dPeriod" ? "%D Period" : key.charAt(0).toUpperCase() + key.slice(1)}</span>
-                        <input type="number" min="1" max="500" step={key === "stdDev" ? "0.1" : "1"} value={params[key] ?? defaultValue} onChange={(event) => onIndicatorParamChange(item.type, key, Math.max(1, Number(event.target.value) || 1))} className="w-full rounded border border-border bg-background px-2 py-1 text-xs text-foreground" />
-                      </label>
-                    ))}
-                  </div>
-                </details>
-              );
-            })}
-          </div>
-        )}
       </div>
     </div>
   );
