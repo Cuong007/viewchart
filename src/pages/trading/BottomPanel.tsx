@@ -51,6 +51,8 @@ export interface BottomPanelProps {
   onTabChange: (t: "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators") => void;
   activeIndicators: IndicatorType[];
   onToggleIndicator: (type: IndicatorType) => void;
+  indicatorParams: Record<IndicatorType, Record<string, number>>;
+  onIndicatorParamChange: (type: IndicatorType, key: string, value: number) => void;
   positions: Position[];
   orders: Order[];
   accountId: string | null;
@@ -86,6 +88,8 @@ export function BottomPanel({
   isFeedConnected = true,
   activeIndicators,
   onToggleIndicator,
+  indicatorParams,
+  onIndicatorParamChange,
 }: BottomPanelProps) {
   const isDemo = useAuthStore((s) => s.isDemo);
   const cancelOrder = useCancelOrder();
@@ -324,14 +328,26 @@ export function BottomPanel({
             {INDICATOR_REGISTRY.map((indicator) => {
               const enabled = activeIndicators.includes(indicator.type);
               return (
-                <label key={indicator.type} className="flex items-center gap-3 rounded-lg border border-border p-3 text-xs cursor-pointer hover:bg-secondary/50">
-                  <input type="checkbox" checked={enabled} onChange={() => onToggleIndicator(indicator.type)} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-medium">{indicator.label}</span>
-                    <span className="text-muted-foreground">{indicator.type} · {indicator.pane === "overlay" ? "Overlay" : "Separate pane"}</span>
-                  </span>
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: indicator.color }} />
-                </label>
+                <div key={indicator.type} className="rounded-lg border border-border p-3 text-xs space-y-2">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" checked={enabled} onChange={() => onToggleIndicator(indicator.type)} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-medium">{indicator.label}</span>
+                      <span className="text-muted-foreground">{indicator.type} · {indicator.pane === "overlay" ? "Overlay" : "Separate pane"}</span>
+                    </span>
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: indicator.color }} />
+                  </label>
+                  {Object.entries(indicator.defaultParams).map(([key, defaultValue]) => (
+                    <label key={key} className="flex items-center justify-between gap-3 pl-6 text-muted-foreground">
+                      <span>{key === "period" ? "Period" : key === "stdDev" ? "Độ lệch chuẩn" : key === "fast" ? "Fast" : key === "slow" ? "Slow" : key === "signal" ? "Signal" : key === "kPeriod" ? "%K period" : key === "dPeriod" ? "%D period" : key}</span>
+                      <input type="number" min={1} max={5000} step={1}
+                        value={indicatorParams[indicator.type]?.[key] ?? defaultValue}
+                        onChange={(event) => onIndicatorParamChange(indicator.type, key, Number(event.target.value))}
+                        disabled={!enabled}
+                        className="w-20 rounded border border-border bg-background px-2 py-1 text-right text-foreground disabled:opacity-40" />
+                    </label>
+                  ))}
+                </div>
               );
             })}
           </div>
