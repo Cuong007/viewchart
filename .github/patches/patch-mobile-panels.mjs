@@ -448,6 +448,15 @@ function NewsFeed() {
 `;
   writeFileSync(bottomPath, bottom);
 }
+// Keep the embedded news timeline in sync with the app's selected appearance.
+const tradingPagePath = "src/pages/TradingPage.tsx";
+let tradingPage = readFileSync(tradingPagePath, "utf8");
+tradingPage = tradingPage.replaceAll(
+  '<MarketNewsFeed symbol={selectedSymbol} />',
+  '<MarketNewsFeed symbol={selectedSymbol} theme={isDark ? "dark" : "light"} />',
+);
+writeFileSync(tradingPagePath, tradingPage);
+
 console.log("Installed live TradingView news timeline in OpenCharts panels.");
 
 console.log("Applied OpenCharts mobile tools and Android network compatibility patches.");
