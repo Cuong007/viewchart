@@ -32,6 +32,7 @@ jobs:
             src/components/AdapterMarketDataBridge.tsx \
             src/components/ConnectionIndicator.tsx \
             examples/dnse-adapter/dnse-adapter.ts \
+            examples/binance-adapter/binance-adapter.ts \
             src/pages/TradingPage.tsx \
             src/pages/trading/BottomPanel.tsx \
             src/pages/trading/ChartPanel.tsx \
@@ -71,6 +72,7 @@ jobs:
           grep -q "BAR-BASED replay" src/pages/trading/useReplayPlayback.ts
           grep -q 'createDnsePaperAdapter' src/Root.tsx
           grep -q 'decodeDnseOhlc' examples/dnse-adapter/dnse-adapter.ts
+          grep -q 'PAXGUSDT' examples/binance-adapter/binance-adapter.ts
           grep -q 'AdapterMarketDataBridge' src/adapter/provider.tsx
           grep -q 'getConnectionState' src/components/ConnectionIndicator.tsx
           grep -q 'key: "data-sources"' src/pages/trading/BottomPanel.tsx
