@@ -34,7 +34,7 @@ jobs:
           cp /tmp/viewchart-workflows/android-apk.yml .github/workflows/android-apk.yml
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
