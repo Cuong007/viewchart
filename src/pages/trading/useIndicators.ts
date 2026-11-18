@@ -50,7 +50,7 @@ export function useIndicators(
 
       switch (type) {
         case "SMA": {
-          const data = sma(indCandles, config.defaultParams.period!);
+          const data = sma(indCandles, (indicatorParams[type]?.period ?? (indicatorParams[type]?.period ?? config.defaultParams.period))!);
           const s = chart.addLineSeries({
             color: config.color,
             lineWidth: 1,
@@ -200,5 +200,5 @@ export function useIndicators(
     }
     // chartRef/candleSeriesRef are stable refs; colors derived from isDark dep.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeIndicators, chartData, isDark]);
+  }, [activeIndicators, chartData, isDark, indicatorParams]);
 }
