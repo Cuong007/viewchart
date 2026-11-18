@@ -211,6 +211,8 @@ export interface ChartPanelProps {
   isDark: boolean;
   activeIndicators: IndicatorType[];
   indicatorParams?: Record<IndicatorType, Record<string, number>>;
+  indicatorCodeOverrides?: Partial<Record<IndicatorType, string>>;
+  customIndicators?: CustomIndicatorDefinition[];
   drawingTool: DrawingTool;
   drawings: DrawingLine[];
   onAddDrawing: (d: DrawingLine) => void;
@@ -1088,6 +1090,8 @@ export function ChartPanel({
   isDark,
   activeIndicators,
   indicatorParams,
+  indicatorCodeOverrides,
+  customIndicators,
   drawingTool,
   drawings,
   onAddDrawing,
@@ -1420,7 +1424,7 @@ export function ChartPanel({
     [onAddDrawing, pipDigits, timeframe, selectedSymbol],
   );
 
-  useIndicators(chartRef, candleSeriesRef, chartData, activeIndicators, isDark, indicatorParams ?? {} as Record<IndicatorType, Record<string, number>>);
+  useIndicators(chartRef, candleSeriesRef, chartData, activeIndicators, isDark, indicatorParams ?? {} as Record<IndicatorType, Record<string, number>>, indicatorCodeOverrides, customIndicators);
 
   // ── Replay trade event markers ─────────────────────────────
   useEffect(() => {
