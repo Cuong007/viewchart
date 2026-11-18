@@ -1464,8 +1464,7 @@ export function ChartPanel({
       activeApi = api;
       api.init({ chart, series, container, rightOffset: 12 });
       ownedCanvases = Array.from(container.querySelectorAll("canvas")).filter((node) => !canvasesBefore.has(node));
-      // The supplied script disables ordinary FVG by default; enable it here.
-      (api as typeof api & { setConfig?: (patch: Record<string, unknown>) => void }).setConfig?.({ mothuong: true });
+      // Respect the indicator's own defaults and user configuration. Do not force-enable FVG.
       fvgApiRef.current = api;
       return () => {
         try { activeApi?.destroy?.(); } catch (error) {
