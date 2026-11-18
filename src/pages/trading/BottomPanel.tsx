@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { BookOpen, Clock, Code2, Globe, History, Newspaper, Pencil, Plus, Trash2, TrendingUp } from "lucide-react";
+import { BookOpen, Clock, Code2, Database, Globe, History, Newspaper, Pencil, Plus, Trash2, TrendingUp, X } from "lucide-react";
 import { useAuthStore } from "../../services/store.tsx";
 import { useTradingStore } from "../../services/store.tsx";
 import {
@@ -47,8 +47,8 @@ function getErrorMessage(error: unknown): string {
 }
 
 export interface BottomPanelProps {
-  tab: "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators" | "indicator-code";
-  onTabChange: (t: "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators" | "indicator-code") => void;
+  tab: "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators" | "indicator-code" | "data-sources";
+  onTabChange: (t: "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators" | "indicator-code" | "data-sources") => void;
   activeIndicators: IndicatorType[];
   onToggleIndicator: (type: IndicatorType) => void;
   indicatorParams: Record<IndicatorType, Record<string, number>>;
@@ -74,6 +74,86 @@ export interface BottomPanelProps {
   onDeleteJournal: (id: string) => void;
   height?: number;
   isFeedConnected?: boolean;
+}
+
+
+type ManagedDataSource = { id: string; name: string; provider: string; endpoint: string; enabled: boolean };
+type ManagedInstrument = { symbol: string; name: string; assetClass: string; sourceId: string };
+
+function DataSourcesPanel() {
+  const sourceKey = "opencharts_managed_data_sources_v1";
+  const instrumentKey = "opencharts_managed_instruments_v1";
+  const [sources, setSources] = useState<ManagedDataSource[]>(() => {
+    try { return JSON.parse(safeStorage.getItem(sourceKey) || "[]"); } catch { return []; }
+  });
+  const [instruments, setInstruments] = useState<ManagedInstrument[]>(() => {
+    try {
+      const saved = JSON.parse(safeStorage.getItem(instrumentKey) || "null");
+      return Array.isArray(saved) ? saved : [
+        { symbol: "XAUUSD", name: "Vàng giao ngay", assetClass: "Kim loại", sourceId: "" },
+        { symbol: "VN30F1M", name: "Hợp đồng tương lai VN30 tháng gần nhất", assetClass: "Phái sinh Việt Nam", sourceId: "" },
+      ];
+    } catch { return []; }
+  });
+  const [name, setName] = useState("");
+  const [kind, setKind] = useState("REST API");
+  const [endpoint, setEndpoint] = useState("");
+  const [editing, setEditing] = useState<string | null>(null);
+  const [symbol, setSymbol] = useState("");
+  const [label, setLabel] = useState("");
+  const [category, setCategory] = useState("Kim loại");
+  const saveSources = (v: ManagedDataSource[]) => { setSources(v); safeStorage.setJSON(sourceKey, v); };
+  const saveInstruments = (v: ManagedInstrument[]) => { setInstruments(v); safeStorage.setJSON(instrumentKey, v); };
+  const saveSource = () => {
+    if (!name.trim() || !endpoint.trim()) { toast.warning("Thiếu thông tin", "Hãy nhập tên nguồn và endpoint."); return; }
+    const id = editing || crypto.randomUUID();
+    const row = { id, name: name.trim(), provider: kind, endpoint: endpoint.trim(), enabled: true };
+    saveSources(editing ? sources.map(s => s.id === id ? row : s) : [...sources, row]);
+    setName(""); setEndpoint(""); setEditing(null);
+    toast.success("Đã lưu", "Cấu hình nguồn đã được lưu trên thiết bị.");
+  };
+  const addSymbol = () => {
+    const code = symbol.trim().toUpperCase();
+    if (!code) { toast.warning("Thiếu mã", "Nhập mã như XAUUSD hoặc VN30F1M."); return; }
+    if (instruments.some(i => i.symbol === code)) { toast.warning("Mã đã tồn tại", code + " đã có trong danh mục."); return; }
+    saveInstruments([...instruments, { symbol: code, name: label.trim() || code, assetClass: category, sourceId: "" }]);
+    setSymbol(""); setLabel("");
+  };
+  return <div className="p-3 space-y-4 text-xs">
+    <div><h3 className="font-semibold text-sm">Quản lý nguồn dữ liệu thị trường</h3><p className="text-muted-foreground mt-1">Khai báo nhà cung cấp và danh mục thị trường ngoài crypto. Cấu hình được lưu trên thiết bị.</p></div>
+    <section className="rounded-lg border border-border p-3 space-y-3">
+      <div className="font-semibold">{editing ? "Sửa nguồn dữ liệu" : "Thêm nguồn dữ liệu"}</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <label className="space-y-1"><span className="text-muted-foreground">Tên nguồn</span><input value={name} onChange={e=>setName(e.target.value)} placeholder="Ví dụ: Twelve Data, SSI..." className="w-full rounded border border-border bg-background px-2 py-2"/></label>
+        <label className="space-y-1"><span className="text-muted-foreground">Loại kết nối</span><select value={kind} onChange={e=>setKind(e.target.value)} className="w-full rounded border border-border bg-background px-2 py-2"><option>REST API</option><option>WebSocket</option><option>CSV / URL dữ liệu</option><option>TradingView</option><option>Broker API</option></select></label>
+        <label className="space-y-1 sm:col-span-2"><span className="text-muted-foreground">Endpoint / URL</span><input value={endpoint} onChange={e=>setEndpoint(e.target.value)} placeholder="https://api.example.com/..." className="w-full rounded border border-border bg-background px-2 py-2"/></label>
+      </div>
+      <div className="flex gap-2"><Button size="sm" onClick={saveSource}><Plus className="h-3 w-3 mr-1"/>Lưu nguồn</Button>{editing && <Button size="sm" variant="outline" onClick={()=>{setEditing(null);setName("");setEndpoint("");}}>Hủy</Button>}</div>
+    </section>
+    <section className="space-y-2"><div className="font-semibold">Nguồn đã khai báo</div>
+      {sources.length===0 ? <p className="rounded border border-dashed border-border p-4 text-center text-muted-foreground">Chưa có nguồn bổ sung. Binance hiện tại tiếp tục hoạt động như nguồn crypto mặc định.</p> : sources.map(s=><div key={s.id} className="flex flex-wrap items-center gap-2 rounded border border-border p-3">
+        <div className="min-w-0 flex-1"><div className="font-medium">{s.name}</div><div className="break-all text-muted-foreground">{s.provider} · {s.endpoint}</div></div>
+        <label className="flex items-center gap-1"><input type="checkbox" checked={s.enabled} onChange={e=>saveSources(sources.map(x=>x.id===s.id?{...x,enabled:e.target.checked}:x))}/> Bật</label>
+        <Button size="sm" variant="outline" onClick={()=>{setEditing(s.id);setName(s.name);setKind(s.provider);setEndpoint(s.endpoint);}}>Sửa</Button>
+        <Button size="sm" variant="ghost" onClick={()=>{if(confirm("Xóa nguồn "+s.name+"?")){saveSources(sources.filter(x=>x.id!==s.id));saveInstruments(instruments.map(i=>i.sourceId===s.id?{...i,sourceId:""}:i));}}}><Trash2 className="h-3 w-3"/></Button>
+      </div>)}
+    </section>
+    <section className="rounded-lg border border-border p-3 space-y-3">
+      <div><div className="font-semibold">Danh mục mã thị trường</div><p className="mt-1 text-muted-foreground">Có sẵn XAUUSD và VN30F1M để cấu hình nguồn giá; có thể thêm mã khác.</p></div>
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+        <input value={symbol} onChange={e=>setSymbol(e.target.value)} placeholder="Mã: XAUUSD" className="rounded border border-border bg-background px-2 py-2"/>
+        <input value={label} onChange={e=>setLabel(e.target.value)} placeholder="Tên hiển thị" className="rounded border border-border bg-background px-2 py-2"/>
+        <select value={category} onChange={e=>setCategory(e.target.value)} className="rounded border border-border bg-background px-2 py-2"><option>Kim loại</option><option>Chỉ số</option><option>Phái sinh Việt Nam</option><option>Forex</option><option>Cổ phiếu</option><option>Hàng hóa</option><option>Khác</option></select>
+        <Button size="sm" onClick={addSymbol}><Plus className="h-3 w-3 mr-1"/>Thêm mã</Button>
+      </div>
+      <div className="divide-y divide-border">{instruments.map(i=><div key={i.symbol} className="flex flex-wrap items-center gap-2 py-2">
+        <div className="min-w-0 flex-1"><span className="font-semibold">{i.symbol}</span><span className="ml-2 text-muted-foreground">{i.name} · {i.assetClass}</span></div>
+        <select aria-label={"Nguồn cho "+i.symbol} value={i.sourceId} onChange={e=>saveInstruments(instruments.map(x=>x.symbol===i.symbol?{...x,sourceId:e.target.value}:x))} className="max-w-40 rounded border border-border bg-background px-2 py-1"><option value="">Chưa gán nguồn</option>{sources.filter(s=>s.enabled).map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
+        <button aria-label={"Xóa "+i.symbol} onClick={()=>saveInstruments(instruments.filter(x=>x.symbol!==i.symbol))} className="rounded p-1 hover:bg-secondary"><X className="h-3 w-3"/></button>
+      </div>)}</div>
+    </section>
+    <p className="text-muted-foreground">Lưu ý: tab này hiện quản lý cấu hình nguồn và mã. Muốn hiển thị nến/giá trực tiếp của XAUUSD hoặc VN30F1M, cần tích hợp adapter đúng API và định dạng dữ liệu của nhà cung cấp; chỉ nhập URL không tự tạo ra feed giá.</p>
+  </div>;
 }
 
 export function BottomPanel({
@@ -281,6 +361,7 @@ export function BottomPanel({
     { key: "news", label: "News", icon: Newspaper },
     { key: "indicators", label: "Indicators", icon: TrendingUp },
     { key: "indicator-code", label: "Code chỉ báo", icon: Code2 },
+    { key: "data-sources", label: "Nguồn dữ liệu", icon: Database },
   ];
   // The calendar and news tabs are sample data; a live broker must not show it.
   const visibleTabs = isHyperliquidMode()
@@ -344,6 +425,7 @@ export function BottomPanel({
 
       {/* Content */}
       <div className="flex-1 overflow-auto">
+        {tab === "data-sources" && <DataSourcesPanel />}
         {tab === "positions" && (
           <PositionsTable
             positions={openPositions}
