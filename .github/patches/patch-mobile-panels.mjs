@@ -86,7 +86,7 @@ const cspOrigins = [
   '  "https://stream.binance.com:9443",',
   '  "wss://stream.binance.com:9443",',
   '];',
-].join("\\n");
+].join("\n");
 if (!csp.includes('"wss://stream.binance.com:9443"')) {
   if (!csp.includes(cspAnchor)) throw new Error("Could not find CSP connect-origin anchor.");
   csp = csp.replace(cspAnchor, cspOrigins);
