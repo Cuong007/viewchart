@@ -112,8 +112,8 @@ export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
       for (const bar of sessionData.tickBuffer) {
         const bucket = Math.floor(bar.t / interval) * interval;
         const prev = grouped.get(bucket);
-        if (!prev) grouped.set(bucket, { ...bar, t: bucket });
-        else grouped.set(bucket, { t: bucket, o: prev.o, h: Math.max(prev.h, bar.h), l: Math.min(prev.l, bar.l), c: bar.c, v: prev.v + bar.v });
+        if (!prev) grouped.set(bucket, { ...bar, t: bucket + interval - 60_000 });
+        else grouped.set(bucket, { t: bucket + interval - 60_000, o: prev.o, h: Math.max(prev.h, bar.h), l: Math.min(prev.l, bar.l), c: bar.c, v: prev.v + bar.v });
       }
       playbackBarsRef.current = [...grouped.values()];
       cursorIndexRef.current = 0;
