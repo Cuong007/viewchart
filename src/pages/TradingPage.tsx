@@ -218,7 +218,7 @@ export function TradingPage() {
       {/* ── Top Toolbar ──────────────────────────────────── */}
       <ChartToolbar
         selectedSymbol={selectedSymbol}
-        symbols={symbols}
+        symbols={selectableSymbols}
         onSymbolChange={setSelectedSymbol}
         timeframe={timeframe}
         onTimeframeChange={handleTimeframeChange}
