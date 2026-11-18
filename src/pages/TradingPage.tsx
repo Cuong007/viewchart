@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { MobileAccountBar, MobileTradingPanel } from "../components/MobileTradingPanel.tsx";
 import { NewsFeed as MarketNewsFeed } from "../components/TradingPowerFeatures.tsx";
 import { TradingViewTechnicalAnalysis } from "../components/TradingViewWidgets.tsx";
@@ -200,40 +200,6 @@ export function TradingPage() {
     },
     [activeIndicators, toggleIndicator],
   );
-  const [managedInstruments, setManagedInstruments] = useState<Array<{ symbol: string; name: string; assetClass: string }>>(() => {
-    try {
-      const saved = JSON.parse(safeStorage.getItem("opencharts_managed_instruments_v1") || "null");
-      return Array.isArray(saved) ? saved : [
-        { symbol: "XAUUSD", name: "Vàng giao ngay", assetClass: "Kim loại" },
-        { symbol: "VN30F1M", name: "Hợp đồng tương lai VN30 tháng gần nhất", assetClass: "Phái sinh Việt Nam" },
-      ];
-    } catch { return []; }
-  });
-  useEffect(() => {
-    const refresh = () => {
-      try {
-        const saved = JSON.parse(safeStorage.getItem("opencharts_managed_instruments_v1") || "[]");
-        setManagedInstruments(Array.isArray(saved) ? saved : []);
-      } catch { setManagedInstruments([]); }
-    };
-    window.addEventListener("opencharts:instruments-updated", refresh);
-    window.addEventListener("storage", refresh);
-    return () => {
-      window.removeEventListener("opencharts:instruments-updated", refresh);
-      window.removeEventListener("storage", refresh);
-    };
-  }, []);
-  const selectableSymbols = [
-    ...symbols,
-    ...managedInstruments
-      .filter((item) => !symbols.some((existing) => existing.name === item.symbol))
-      .map((item) => ({
-        id: "managed:" + item.symbol,
-        name: item.symbol,
-        displayName: item.name,
-        category: item.assetClass,
-      })),
-  ];
   const ticks = useTradingStore((s) => s.ticks);
 
   return (
