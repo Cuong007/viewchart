@@ -23,7 +23,7 @@ function evaluateIndicatorCode(
   params: Record<string, number>,
 ): unknown {
   try {
-    const result = new Function("candles", "params", "return (" + code + "\\n);")(candles, params);
+    const result = new Function("candles", "params", "return (" + code + String.fromCharCode(10) + ");")(candles, params);
     return typeof result === "function" ? result(candles, params) : result;
   } catch (expressionError) {
     try {
