@@ -76,7 +76,6 @@ jobs:
           export default config;
           EOF
           npx cap add android
-          npx cap sync android
 
       - name: Build web app
         run: |
