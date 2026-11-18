@@ -82,6 +82,12 @@ csp = csp.replace(
   'return u.protocol === "https:" || u.protocol === "http:" ? u.origin : undefined;',
   'return ["https:", "http:", "wss:", "ws:"].includes(u.protocol) ? u.origin : undefined;',
 );
+// Custom indicator JavaScript uses new Function at runtime. The upstream CSP
+// blocks eval by default, so explicitly enable it for this user-authored-code feature.
+csp = csp.replace(
+  "script-src 'self'",
+  "script-src 'self' 'unsafe-eval'",
+);
 writeFileSync(cspPath, csp);
  
 // Replace the synthetic Binance DOM ladder with the exchange's live top-20 depth stream.
