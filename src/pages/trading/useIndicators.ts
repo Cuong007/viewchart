@@ -17,6 +17,23 @@ import {
 import { toIndicatorCandles } from "./utils.ts";
 import { CHART_COLORS } from "./constants.ts";
 
+function evaluateIndicatorCode(
+  code: string,
+  candles: ReturnType<typeof toIndicatorCandles>,
+  params: Record<string, number>,
+): unknown {
+  try {
+    const result = new Function("candles", "params", "return (" + code + String.fromCharCode(10) + ");")(candles, params);
+    return typeof result === "function" ? result(candles, params) : result;
+  } catch (expressionError) {
+    try {
+      return new Function("candles", "params", code)(candles, params);
+    } catch {
+      throw expressionError;
+    }
+  }
+}
+
 export function useIndicators(
   chartRef: React.RefObject<IChartApi | null>,
   candleSeriesRef: React.RefObject<ISeriesApi<"Candlestick"> | null>,
@@ -55,9 +72,7 @@ export function useIndicators(
       const customCode = indicatorCodeOverrides[type];
       if (customCode?.trim()) {
         try {
-          const calculate = new Function("candles", "params", `"use strict"; return (${customCode});`) as
-            (candles: typeof indCandles, params: Record<string, number>) => Array<{ time: number; value: number }>;
-          const points = calculate(indCandles, params);
+          const points = evaluateIndicatorCode(customCode, indCandles, params) as Array<{ time: number; value: number }>;
           if (!Array.isArray(points)) throw new Error("Code must return an array of { time, value }");
           const series = chart.addLineSeries({ color: config.color, lineWidth: 2, priceScaleId: "right" });
           series.setData(points.filter((p) => Number.isFinite(p?.time) && Number.isFinite(p?.value)).map((p) => ({ time: p.time as Time, value: p.value })));
@@ -223,11 +238,9 @@ export function useIndicators(
       if (custom.enabled !== true) continue;
       // Overlay modules (for example FVGIndicator) manage their own canvas and
       // chart lifecycle; they are mounted by ChartPanel, not as line series.
-      if (/\\bFVGIndicator\\b/.test(custom.code)) continue;
+      if (/\bFVGIndicator\b/.test(custom.code)) continue;
       try {
-        const calculate = new Function("candles", "params", `"use strict"; return (${custom.code});`) as
-          (candles: typeof indCandles, params: Record<string, number>) => Array<{ time: number; value: number }>;
-        const points = calculate(indCandles, {});
+        const points = evaluateIndicatorCode(custom.code, indCandles, {}) as Array<{ time: number; value: number }>;
         if (!Array.isArray(points)) continue;
         const series = chart.addLineSeries({ color: custom.color || "#a78bfa", lineWidth: 2, priceScaleId: "right" });
         series.setData(points.filter((p) => Number.isFinite(p?.time) && Number.isFinite(p?.value)).map((p) => ({ time: p.time as Time, value: p.value })));
