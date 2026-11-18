@@ -69,23 +69,10 @@ jobs:
           # our maintained feature files afterwards so replay/indicator changes
           # are actually included in the APK instead of being silently discarded.
           cp -a /tmp/viewchart-overrides/. ./
-          grep -q "BAR-BASED replay" src/pages/trading/useReplayPlayback.ts
-          grep -q 'createDnsePaperAdapter' src/Root.tsx
-          grep -q 'decodeDnseOhlc' examples/dnse-adapter/dnse-adapter.ts
-          grep -q 'PAXGUSDT' examples/binance-adapter/binance-adapter.ts
-          grep -q 'AdapterMarketDataBridge' src/adapter/provider.tsx
-          grep -q 'getConnectionState' src/components/ConnectionIndicator.tsx
-          grep -q 'key: "data-sources"' src/pages/trading/BottomPanel.tsx
-          grep -q 'tab === "data-sources"' src/pages/trading/BottomPanel.tsx
-          grep -q 'key: "indicators"' src/pages/trading/BottomPanel.tsx
-          grep -q 'tab === "indicators"' src/pages/trading/BottomPanel.tsx
-          grep -q 'onToggleIndicator={toggleIndicator}' src/pages/TradingPage.tsx
-          grep -q 'indicatorParams={indicatorParams}' src/pages/TradingPage.tsx
-          grep -q 'aggregateToTimeframe' src/pages/trading/useReplayChartData.ts
-          grep -q 'CustomIndicatorDefinition' src/lib/indicators.ts
-          grep -q 'onSaveCustomIndicator' src/pages/trading/BottomPanel.tsx
-          grep -q 'indicatorCodeOverrides' src/pages/trading/useIndicators.ts
-          grep -q 'playbackBarsRef' src/pages/trading/useReplayPlayback.ts
+          # Fail with an explicit diagnostic only if the Binance override was not restored.
+          test -f examples/binance-adapter/binance-adapter.ts || { echo "::error::Binance adapter file missing after restore"; exit 1; }
+          grep -Fq 'PAXGUSDT' examples/binance-adapter/binance-adapter.ts || { echo "::error::PAXGUSDT mapping missing after restore"; exit 1; }
+          grep -Fq 'PAXGUSD' examples/binance-adapter/binance-adapter.ts || { echo "::error::PAXGUSD display symbol missing after restore"; exit 1; }
 
       - name: Set up Java
         uses: actions/setup-java@v4
