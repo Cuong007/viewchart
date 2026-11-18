@@ -83,7 +83,7 @@ export function createDnseMarketData():MarketDataSource{
     let fromSec=req.fromMs!=null?Math.floor(req.fromMs/1000):toSec-defaultSpan*86400;
     if(fromSec>=toSec)fromSec=toSec-seconds*wanted;
     let collected:Candle[]=[],cursor=fromSec,pageTo=toSec;
-    for(let page=0;page<8&&cursor<pageTo;page++){
+    for(let page=0;page<100&&cursor<pageTo;page++){
       let pageRows:Candle[]=[];let nextTime=0;let succeeded=false;
       for(const base of HISTORY_URLS){
         try{
