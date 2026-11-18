@@ -24,10 +24,6 @@ export const HL_CONNECT_ORIGINS: readonly string[] = [
   "wss://api.hyperliquid-testnet.xyz",
   "https://arb1.arbitrum.io",
   "https://sepolia-rollup.arbitrum.io",
-  "https://api.binance.com",
-  "https://data-api.binance.vision",
-  "https://stream.binance.com:9443",
-  "wss://stream.binance.com:9443",
 ];
 
 export interface CspOptions {
