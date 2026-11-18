@@ -92,7 +92,8 @@ export function createDnseMarketData():MarketDataSource{
         }catch(error){console.warn("[dnse] history endpoint failed",base,error);}
       }
       if(!succeeded||pageRows.length===0)break;
-      collected=merge(collected,pageRows);
+      const normalizedPage=req.timeframe==="4h"?aggregate(pageRows,seconds):pageRows;
+      collected=merge(collected,normalizedPage);
       const earliest=pageRows[0]!.time;
       const next=nextTime>0?nextTime:earliest-seconds;
       if(next<=cursor||earliest<=0||pageRows.length<2)break;
@@ -101,8 +102,7 @@ export function createDnseMarketData():MarketDataSource{
     }
     if(collected.length){const merged=merge(history,collected);history.splice(0,history.length,...merged.slice(-50000));save();}
     const all=merge(frameCache.get(req.timeframe)??[],collected);frameCache.set(req.timeframe,all);
-    let result=merge(all,req.timeframe==="1m"?history:[]);
-    if(req.timeframe!=="1m"&&history.length)result=merge(result,aggregate(history,seconds));
+    let result=merge(aggregate(history,seconds),all);
     if(req.fromMs!=null)result=result.filter(c=>c.time*1000>=req.fromMs!);
     if(req.toMs!=null)result=result.filter(c=>c.time*1000<req.toMs!);
     if(req.limit!=null&&req.fromMs==null)result=result.slice(-req.limit);
