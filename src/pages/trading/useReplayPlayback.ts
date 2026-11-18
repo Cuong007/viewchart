@@ -202,17 +202,9 @@ export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
       syncCursorToServer(now, lastServerSyncRef, accountId, sessionDateRef.current, newCursorMs);
 
       if (cursorIndexRef.current >= lastIndex) {
-        const latestBarMs = buf[lastIndex]?.t ?? 0;
-        const caughtLiveEdge = latestBarMs >= Date.now() - 120_000;
-        // A closed market may have no new bars; stop after the buffer has stayed
-        // unchanged across two polling windows instead of stalling forever.
-        const bufferSettled = lastBufferGrowthAtRef.current > 0
-          && Date.now() - lastBufferGrowthAtRef.current >= 30_000;
-        if (caughtLiveEdge || bufferSettled) {
-          isActiveRef.current = false;
-          finishReplay(accountId, sessionDateRef.current, newCursorMs);
-          return false;
-        }
+        isActiveRef.current = false;
+        finishReplay(accountId, sessionDateRef.current, newCursorMs);
+        return false;
       }
       return true;
     };
