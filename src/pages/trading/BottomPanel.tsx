@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { BookOpen, Clock, Globe, History, Newspaper, TrendingUp } from "lucide-react";
+import { BookOpen, Clock, Code2, Globe, History, Newspaper, Pencil, Plus, Trash2, TrendingUp } from "lucide-react";
 import { useAuthStore } from "../../services/store.tsx";
 import { useTradingStore } from "../../services/store.tsx";
 import {
@@ -29,7 +29,7 @@ import { OrdersTable } from "./OrdersTable.tsx";
 import { computeLivePnl, computeLivePrice } from "../../lib/livePnl.ts";
 import { safeStorage } from "../../lib/safe-storage.ts";
 import { isHyperliquidMode } from "../../hyperliquid/ui/mode.ts";
-import { INDICATOR_REGISTRY, type IndicatorType } from "../../lib/indicators.ts";
+import { INDICATOR_REGISTRY, type CustomIndicatorDefinition, type IndicatorType } from "../../lib/indicators.ts";
 
 type TradingActionError = {
   error?: { message?: string };
@@ -47,12 +47,18 @@ function getErrorMessage(error: unknown): string {
 }
 
 export interface BottomPanelProps {
-  tab: "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators";
-  onTabChange: (t: "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators") => void;
+  tab: "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators" | "indicator-code";
+  onTabChange: (t: "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators" | "indicator-code") => void;
   activeIndicators: IndicatorType[];
   onToggleIndicator: (type: IndicatorType) => void;
   indicatorParams: Record<IndicatorType, Record<string, number>>;
   onIndicatorParamChange: (type: IndicatorType, key: string, value: number) => void;
+  indicatorCodeOverrides: Partial<Record<IndicatorType, string>>;
+  customIndicators: CustomIndicatorDefinition[];
+  onSaveIndicatorCode: (type: IndicatorType, code: string) => void;
+  onSaveCustomIndicator: (name: string, code: string) => void;
+  onDeleteIndicator: (type: IndicatorType) => void;
+  onDeleteCustomIndicator: (id: string) => void;
   positions: Position[];
   orders: Order[];
   accountId: string | null;
@@ -90,8 +96,45 @@ export function BottomPanel({
   onToggleIndicator,
   indicatorParams,
   onIndicatorParamChange,
+  indicatorCodeOverrides,
+  customIndicators,
+  onSaveIndicatorCode,
+  onSaveCustomIndicator,
+  onDeleteIndicator,
+  onDeleteCustomIndicator,
 }: BottomPanelProps) {
   const isDemo = useAuthStore((s) => s.isDemo);
+  const [editingIndicator, setEditingIndicator] = useState<IndicatorType | null>(null);
+  const [editingCustomId, setEditingCustomId] = useState<string | null>(null);
+  const [isNewCustom, setIsNewCustom] = useState(false);
+  const [editorName, setEditorName] = useState("");
+  const [editorCode, setEditorCode] = useState("");
+  const beginEditIndicator = (type: IndicatorType) => {
+    setEditingIndicator(type); setEditingCustomId(null); setIsNewCustom(false);
+    setEditorName(type);
+    setEditorCode(indicatorCodeOverrides[type] || "(candles, params) => {\n  // Return [{ time, value }]\n  return candles.map(c => ({ time: c.time, value: c.close }));\n}");
+    onTabChange("indicator-code");
+  };
+  const beginEditCustom = (item: CustomIndicatorDefinition) => {
+    setEditingIndicator(null); setEditingCustomId(item.id); setIsNewCustom(false);
+    setEditorName(item.name); setEditorCode(item.code); onTabChange("indicator-code");
+  };
+  const beginNewCustom = () => {
+    setEditingIndicator(null); setEditingCustomId(null); setIsNewCustom(true);
+    setEditorName("Chỉ báo mới"); setEditorCode(""); onTabChange("indicator-code");
+  };
+  const saveCode = () => {
+    if (!editorCode.trim()) { toast.warning("Thiếu mã", "Hãy nhập code chỉ báo trước khi lưu."); return; }
+    try { new Function("candles", "params", "return (" + editorCode + ");"); }
+    catch (error) { toast.error("Code không hợp lệ", error instanceof Error ? error.message : "Lỗi cú pháp"); return; }
+    if (editingIndicator) onSaveIndicatorCode(editingIndicator, editorCode);
+    else if (editingCustomId) {
+      onDeleteCustomIndicator(editingCustomId);
+      onSaveCustomIndicator(editorName, editorCode);
+    } else if (isNewCustom) onSaveCustomIndicator(editorName, editorCode);
+    setEditingIndicator(null); setEditingCustomId(null); setIsNewCustom(false);
+    toast.success("Đã lưu", "Mã chỉ báo đã được lưu."); onTabChange("indicators");
+  };
   const cancelOrder = useCancelOrder();
   const closePosition = useClosePosition();
   const closeAllPositions = useCloseAllPositions();
@@ -215,6 +258,7 @@ export function BottomPanel({
     { key: "calendar", label: "Calendar", icon: Globe },
     { key: "news", label: "News", icon: Newspaper },
     { key: "indicators", label: "Indicators", icon: TrendingUp },
+    { key: "indicator-code", label: "Code chỉ báo", icon: Code2 },
   ];
   // The calendar and news tabs are sample data; a live broker must not show it.
   const visibleTabs = isHyperliquidMode()
@@ -337,6 +381,10 @@ export function BottomPanel({
                     </span>
                     <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: indicator.color }} />
                   </label>
+                  <div className="flex justify-end gap-2">
+                    <Button size="sm" variant="outline" onClick={() => beginEditIndicator(indicator.type)}><Pencil className="h-3 w-3 mr-1" /> Sửa</Button>
+                    <Button size="sm" variant="outline" onClick={() => { if (window.confirm("Xóa " + indicator.label + " khỏi biểu đồ?")) onDeleteIndicator(indicator.type); }}><Trash2 className="h-3 w-3 mr-1" /> Xóa</Button>
+                  </div>
                   {Object.entries(indicator.defaultParams).map(([key, defaultValue]) => (
                     <label key={key} className="flex items-center justify-between gap-3 pl-6 text-muted-foreground">
                       <span>{key === "period" ? "Period" : key === "stdDev" ? "Độ lệch chuẩn" : key === "fast" ? "Fast" : key === "slow" ? "Slow" : key === "signal" ? "Signal" : key === "kPeriod" ? "%K period" : key === "dPeriod" ? "%D period" : key}</span>
@@ -350,6 +398,34 @@ export function BottomPanel({
                 </div>
               );
             })}
+            {customIndicators.map((item) => (
+              <div key={item.id} className="rounded-lg border border-border p-3 text-xs space-y-2">
+                <div className="font-medium">{item.name}</div>
+                <div className="text-muted-foreground">Custom · JavaScript</div>
+                <div className="flex justify-end gap-2">
+                  <Button size="sm" variant="outline" onClick={() => beginEditCustom(item)}><Pencil className="h-3 w-3 mr-1" /> Sửa</Button>
+                  <Button size="sm" variant="outline" onClick={() => { if (window.confirm("Xóa chỉ báo " + item.name + "?")) onDeleteCustomIndicator(item.id); }}><Trash2 className="h-3 w-3 mr-1" /> Xóa</Button>
+                </div>
+              </div>
+            ))}
+            <div className="sm:col-span-2 flex justify-end"><Button size="sm" onClick={beginNewCustom}><Plus className="h-4 w-4 mr-1" /> Thêm chỉ báo</Button></div>
+          </div>
+        )}
+        {tab === "indicator-code" && (
+          <div className="h-full min-h-[220px] flex flex-col gap-2 p-3">
+            <div className="flex items-center gap-2">
+              <input value={editorName} onChange={(e) => setEditorName(e.target.value)} placeholder="Tên chỉ báo" disabled={!!editingIndicator}
+                className="w-56 rounded border border-border bg-background px-2 py-1.5 text-xs" />
+              <span className="text-xs text-muted-foreground">{editingIndicator ? "Đang sửa " + editingIndicator : isNewCustom ? "Chỉ báo tùy chỉnh mới" : "Chỉnh sửa code"}</span>
+            </div>
+            <textarea value={editorCode} onChange={(e) => setEditorCode(e.target.value)}
+              placeholder="// Viết code chỉ báo tại đây. Ví dụ: (candles, params) => [{ time, value }]"
+              spellCheck={false} className="flex-1 min-h-[150px] w-full resize-y rounded border border-border bg-background p-3 font-mono text-xs text-foreground outline-none focus:ring-1 focus:ring-primary" />
+            <div className="text-[10px] text-muted-foreground">Code phải trả về mảng { "{ time, value }" }. candles gồm time, open, high, low, close, volume.</div>
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="outline" onClick={() => onTabChange("indicators")}>Hủy</Button>
+              <Button size="sm" onClick={saveCode}>Lưu code</Button>
+            </div>
           </div>
         )}
       </div>
