@@ -1,0 +1,104 @@
+name: Bootstrap OpenCharts Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  bootstrap-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout viewchart
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Keep Android workflow while importing upstream
+        run: |
+          mkdir -p /tmp/viewchart-workflows
+          cp .github/workflows/android-apk.yml /tmp/viewchart-workflows/android-apk.yml
+
+      - name: Import OpenCharts source
+        run: |
+          git clone --depth 1 https://github.com/dylanpersonguy/OpenCharts.git /tmp/opencharts
+          rsync -a --delete --exclude='.git' --exclude='.github/workflows/android-apk.yml' /tmp/opencharts/ ./
+          mkdir -p .github/workflows
+          cp /tmp/viewchart-workflows/android-apk.yml .github/workflows/android-apk.yml
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Add Capacitor Android shell
+        run: |
+          npm ci
+          npm install @capacitor/core @capacitor/android
+          npm install --save-dev @capacitor/cli
+          npm pkg set name="viewchart-android"
+          npm pkg set scripts.android:sync="cap sync android"
+          npm pkg set scripts.android:open="cap open android"
+          cat > capacitor.config.ts <<'EOF'
+          import type { CapacitorConfig } from '@capacitor/cli';
+
+          const config: CapacitorConfig = {
+            appId: 'com.cuong007.viewchart',
+            appName: 'OpenCharts',
+            webDir: 'dist',
+            android: {
+              allowMixedContent: false,
+            },
+          };
+
+          export default config;
+          EOF
+          npx cap add android
+          npx cap sync android
+
+      - name: Build web app
+        run: |
+          npm run typecheck
+          npm run build
+
+      - name: Sync web assets and build APK
+        run: |
+          npx cap sync android
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Commit imported source and Android project
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Import OpenCharts and add Capacitor Android project"
+            git push origin HEAD:main
+          fi
+
+      - name: Upload openchart.apk
+        uses: actions/upload-artifact@v4
+        with:
+          name: openchart-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
