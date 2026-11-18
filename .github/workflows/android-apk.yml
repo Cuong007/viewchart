@@ -101,6 +101,11 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # The source import can take several minutes. Rebase its generated
+          # files onto the latest workflow/patch commits before pushing.
+          git fetch origin main
+          git reset --soft origin/main
+          git checkout origin/main -- .github
           git add -A
           if ! git diff --cached --quiet; then
             git commit -m "Import OpenCharts and add Capacitor Android project"
