@@ -22,6 +22,7 @@ export function useIndicators(
   chartData: CandlestickData<Time>[],
   activeIndicators: IndicatorType[],
   isDark: boolean,
+  indicatorParams: Record<IndicatorType, Record<string, number>>,
 ): void {
   const indicatorSeriesRef = useRef<Map<string, ISeriesApi<"Line"> | ISeriesApi<"Histogram">>>(
     new Map(),
@@ -47,10 +48,11 @@ export function useIndicators(
     for (const type of activeIndicators) {
       const config = INDICATOR_REGISTRY.find((r) => r.type === type);
       if (!config) continue;
+      const params = { ...config.defaultParams, ...(indicatorParams[type] ?? {}) };
 
       switch (type) {
         case "SMA": {
-          const data = sma(indCandles, config.defaultParams.period!);
+          const data = sma(indCandles, params.period!);
           const s = chart.addLineSeries({
             color: config.color,
             lineWidth: 1,
@@ -61,7 +63,7 @@ export function useIndicators(
           break;
         }
         case "EMA": {
-          const data = ema(indCandles, config.defaultParams.period!);
+          const data = ema(indCandles, params.period!);
           const s = chart.addLineSeries({
             color: config.color,
             lineWidth: 1,
@@ -72,7 +74,7 @@ export function useIndicators(
           break;
         }
         case "RSI": {
-          const data = rsi(indCandles, config.defaultParams.period);
+          const data = rsi(indCandles, params.period);
           const s = chart.addLineSeries({ color: config.color, lineWidth: 1, priceScaleId: "rsi" });
           s.setData(data.map((p) => ({ time: p.time as Time, value: p.value })));
           indicatorSeriesRef.current.set("RSI", s);
@@ -97,9 +99,9 @@ export function useIndicators(
         case "MACD": {
           const data = macd(
             indCandles,
-            config.defaultParams.fast,
-            config.defaultParams.slow,
-            config.defaultParams.signal,
+            params.fast,
+            params.slow,
+            params.signal,
           );
           const mLine = chart.addLineSeries({
             color: "#2196f3",
@@ -129,8 +131,8 @@ export function useIndicators(
         case "BOLL": {
           const data = bollingerBands(
             indCandles,
-            config.defaultParams.period,
-            config.defaultParams.stdDev,
+            params.period,
+            params.stdDev,
           );
           const upper = chart.addLineSeries({
             color: config.color + "80",
@@ -156,7 +158,7 @@ export function useIndicators(
           break;
         }
         case "ATR": {
-          const data = atr(indCandles, config.defaultParams.period);
+          const data = atr(indCandles, params.period);
           const s = chart.addLineSeries({ color: config.color, lineWidth: 1, priceScaleId: "atr" });
           s.setData(data.map((p) => ({ time: p.time as Time, value: p.value })));
           indicatorSeriesRef.current.set("ATR", s);
@@ -165,8 +167,8 @@ export function useIndicators(
         case "STOCH": {
           const data = stochastic(
             indCandles,
-            config.defaultParams.kPeriod,
-            config.defaultParams.dPeriod,
+            params.kPeriod,
+            params.dPeriod,
           );
           const kLine = chart.addLineSeries({
             color: "#ab47bc",
@@ -200,5 +202,5 @@ export function useIndicators(
     }
     // chartRef/candleSeriesRef are stable refs; colors derived from isDark dep.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeIndicators, chartData, isDark]);
+  }, [activeIndicators, chartData, isDark, indicatorParams]);
 }
