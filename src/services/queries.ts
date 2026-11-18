@@ -303,10 +303,7 @@ export function useReplaySession(
     enabled: !!accountId && !!sessionDate,
     // 30s, not Infinity — replaying *today* a second time must pick up trades
     // and candles recorded since the previous run.
-    staleTime: 5_000,
-    // Keep extending today's replay buffer while playback is running so the
-    // end of the timeline follows the latest completed market candle.
-    refetchInterval: 15_000,
+    staleTime: 30_000,
     gcTime: 5 * 60 * 1000,
   });
 }

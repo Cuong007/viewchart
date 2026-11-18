@@ -54,7 +54,7 @@ function finishReplay(accountId: string, sessionDate: string | null, endMs: numb
  * - Advances one candle per second at 1x; speed controls candles per second.
  * - Throttles Zustand writes and debounces server cursor persistence.
  * - Detects external seeks by comparing store cursor to local cursor ref.
- * - Extends the buffer as fresh candles arrive; stops only after catching the latest live candle.
+ * - Auto-stops and emits "stopped" when the cursor reaches the end of the buffer.
  */
 export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
   const isReplaying = useTradingStore((s) => s.isReplaying);
@@ -117,13 +117,11 @@ export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
         else grouped.set(bucket, { t: bucket + interval - 60_000, o: prev.o, h: Math.max(prev.h, bar.h), l: Math.min(prev.l, bar.l), c: bar.c, v: prev.v + bar.v });
       }
       playbackBarsRef.current = [...grouped.values()];
-      const cursor = localCursorMsRef.current ?? useTradingStore.getState().replayCursorTimestamp;
-      if (previousTimeframeRef.current !== timeframe || cursor != null) {
+      if (previousTimeframeRef.current !== timeframe) {
+        const cursor = useTradingStore.getState().replayCursorTimestamp;
         let idx = 0;
         while (idx < playbackBarsRef.current.length && (playbackBarsRef.current[idx]?.t ?? Infinity) <= (cursor ?? -Infinity)) idx++;
-        cursorIndexRef.current = cursor == null
-          ? 0
-          : Math.max(0, Math.min(playbackBarsRef.current.length - 1, idx - 1));
+        cursorIndexRef.current = Math.max(0, idx - 1);
         localCursorMsRef.current = playbackBarsRef.current[cursorIndexRef.current]?.t ?? null;
       } else {
         cursorIndexRef.current = 0;
@@ -197,15 +195,9 @@ export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
       syncCursorToServer(now, lastServerSyncRef, accountId, sessionDateRef.current, newCursorMs);
 
       if (cursorIndexRef.current >= lastIndex) {
-        // The newest completed candle is normally one minute behind wall time.
-        // Hold at the right edge while the session query polls for the next bar;
-        // finish only after replay has caught the live market edge.
-        const latestBarMs = buf[lastIndex]?.t ?? 0;
-        if (latestBarMs >= Date.now() - 120_000) {
-          isActiveRef.current = false;
-          finishReplay(accountId, sessionDateRef.current, newCursorMs);
-          return false;
-        }
+        isActiveRef.current = false;
+        finishReplay(accountId, sessionDateRef.current, newCursorMs);
+        return false;
       }
       return true;
     };

@@ -49,8 +49,8 @@ let session: SessionState | null = null;
 /** Symbol to play back when the caller does not name one. */
 const DEFAULT_SYMBOL = "BTCUSD";
 
-/** Keep a long multi-day window; DNSE adapter pages historical data and caps its cache at 50k bars. */
-const SESSION_BAR_LIMIT = 50_000;
+/** Enough 1m bars to cover a trading day with room to spare. */
+const SESSION_BAR_LIMIT = 2000;
 
 /**
  * Bars revealed before playback begins. Starting exactly at the first bar
@@ -74,10 +74,7 @@ export async function getSession(
   accountId?: string,
 ): Promise<ReplaySessionPayload> {
   const adapter = getAdapter();
-  const { startMs } = dayBounds(sessionDate);
-  // Replay spans from the selected date through the latest available candle,
-  // not merely to midnight at the end of that date.
-  const endMs = Date.now();
+  const { startMs, endMs } = dayBounds(sessionDate);
 
   const bars = await adapter.marketData.getCandles({
     symbol,
@@ -90,7 +87,7 @@ export async function getSession(
   const tickBuffer = bars
     .filter((c) => {
       const ms = c.time * 1000;
-      return ms >= startMs && ms <= endMs;
+      return ms >= startMs && ms < endMs;
     })
     .map((c) => ({
       t: c.time * 1000,
