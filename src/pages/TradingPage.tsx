@@ -49,6 +49,8 @@ export function TradingPage() {
     isReplaying,
     chartPrefs,
     activeIndicators,
+    indicatorParams,
+    updateIndicatorParam,
     toggleIndicator,
     clearIndicators: handleClearIndicators,
     activePlugins,
@@ -218,6 +220,7 @@ export function TradingPage() {
               timeframe={timeframe}
               isDark={isDark}
               activeIndicators={activeIndicators}
+              indicatorParams={indicatorParams}
               drawingTool={drawingTool}
               drawings={drawings}
               onAddDrawing={addDrawing}
@@ -277,6 +280,8 @@ export function TradingPage() {
             isFeedConnected={isFeedConnected}
             activeIndicators={activeIndicators}
             onToggleIndicator={toggleIndicator}
+            indicatorParams={indicatorParams}
+            onIndicatorParamChange={updateIndicatorParam}
             journalEntries={journalEntries}
             journalLoading={journalLoading}
             onCreateJournal={createJournal}
