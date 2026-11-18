@@ -1,7 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useState, useEffect, useSyncExternalStore } from "react";
 import { wsClient, type ConnectionState } from "@/services/ws";
-import { getAdapter } from "@/adapter/registry";
 import { useMarketDataHealth } from "@/services/queries";
 import { cn } from "@/lib/utils";
 import { Wifi, WifiOff, Loader2 } from "lucide-react";
@@ -22,17 +21,10 @@ function isMarketDataInterrupted(health: unknown): health is MarketDataHealthSna
 
 // ── React Hook ──────────────────────────────────────────
 function subscribeToWsState(callback: () => void) {
-  const unsubWs = wsClient.onStateChange(() => callback());
-  let unsubAdapter: (() => void) | undefined;
-  try { unsubAdapter = getAdapter().marketData.onConnectionChange?.(() => callback()); } catch { /* adapter not installed yet */ }
-  return () => { unsubWs(); unsubAdapter?.(); };
+  return wsClient.onStateChange(() => callback());
 }
 
-function getWsSnapshot(): ConnectionState {
-  try {
-    const adapterState = getAdapter().marketData.getConnectionState?.();
-    if (adapterState) return adapterState;
-  } catch { /* use legacy socket until adapter installs */ }
+function getWsSnapshot() {
   return wsClient.state;
 }
 
