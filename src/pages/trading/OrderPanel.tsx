@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import {
   Minus,
   Plus,
@@ -10,6 +10,8 @@ import {
   VolumeX,
 } from "lucide-react";
 import { useAuthStore } from "../../services/store.tsx";
+import { getAdapter } from "../../adapter/registry.ts";
+import { mark } from "../../services/demo/engine.ts";
 import { usePlaceOrder } from "../../services/queries.ts";
 import { readTraderPrefs } from "../../hooks/useTraderPreferences.ts";
 import { Button } from "../../components/ui/button.tsx";
@@ -97,6 +99,17 @@ function GenericOrderPanel({
   const [stopLoss, setStopLoss] = useState("");
 
   const placeOrder = usePlaceOrder();
+
+  // Keep the paper engine's executable price aligned with the quote shown in
+  // this ticket, including host-provided symbols such as PAXGUSD and VN30F1M.
+  useEffect(() => {
+    if (!tick || !Number.isFinite(tick.bid) || !Number.isFinite(tick.ask)) return;
+    try {
+      if (getAdapter().name === "demo") mark(symbol, (tick.bid + tick.ask) / 2);
+    } catch {
+      // The adapter may not be installed yet while the terminal is mounting.
+    }
+  }, [symbol, tick?.bid, tick?.ask, tick?.timestamp]);
 
   const handleSubmit = () => {
     if (!isFeedConnected) {
