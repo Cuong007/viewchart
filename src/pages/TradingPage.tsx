@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { MobileAccountBar, MobileTradingPanel } from "../components/MobileTradingPanel.tsx";
 import { NewsFeed as MarketNewsFeed } from "../components/TradingPowerFeatures.tsx";
 import { TradingViewTechnicalAnalysis } from "../components/TradingViewWidgets.tsx";
-import type { IndicatorType } from "../lib/indicators.ts";
+import { INDICATOR_REGISTRY, type IndicatorType } from "../lib/indicators.ts";
 import { safeStorage } from "../lib/safe-storage.ts";
 import type { PlaceOrderInput } from "../services/schemas.ts";
 import { updateChartPreferences } from "../hooks/useChartPreferences.ts";
@@ -91,9 +91,9 @@ export function TradingPage() {
   } = useTerminal();
 
   // ── Layout state ──
-  const [showIndicatorMenu, setShowIndicatorMenu] = useState(false);
+  const [showIndicatorMenu, setShowIndicatorMenu] = useState(false);\n  const [indicatorParams, setIndicatorParams] = useState<Record<string, Record<string, number>>>(() => Object.fromEntries(INDICATOR_REGISTRY.map((item) => [item.type, { ...item.defaultParams }])));\n  const updateIndicatorParam = useCallback((type: IndicatorType, key: string, value: number) => { setIndicatorParams((current) => ({ ...current, [type]: { ...current[type], [key]: value } })); }, []);
   const [bottomTab, setBottomTab] = useState<
-    "positions" | "orders" | "history" | "journal" | "calendar" | "news"
+    "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators"
   >("positions");
   const [rightPanel, setRightPanel] = useState<
     "order" | "dom" | "watchlist" | "news" | "tv-analysis"
