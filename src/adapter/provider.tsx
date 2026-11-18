@@ -2,7 +2,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { ErrorBoundary } from "../components/ErrorBoundary.tsx";
 import { MarketDataBridge } from "../components/MarketDataBridge.tsx";
-import { AdapterMarketDataBridge } from "../components/AdapterMarketDataBridge.tsx";
 import { ToastViewport } from "../components/ToastViewport.tsx";
 import { TooltipProvider } from "../components/ui/tooltip.tsx";
 import { cn } from "../lib/utils.ts";
@@ -94,7 +93,6 @@ function useBoot(adapter: OpenChartsAdapter, attempt: number): BootState {
     });
 
     wsClient.connect();
-    void adapter.marketData.connect?.();
 
     const load = async () => {
       const { loadSymbols, loadAccounts } = useTradingStore.getState();
@@ -116,7 +114,6 @@ function useBoot(adapter: OpenChartsAdapter, attempt: number): BootState {
     return () => {
       cancelled = true;
       wsClient.disconnect();
-      adapter.marketData.disconnect?.();
     };
   }, [adapter, key]);
 
@@ -205,7 +202,6 @@ export function OpenChartsProvider({
         >
           {installed === adapter && (
             <>
-              <AdapterMarketDataBridge />
               <MarketDataBridge />
               <ErrorBoundary>
                 <Runtime adapter={adapter} fallback={fallback}>
