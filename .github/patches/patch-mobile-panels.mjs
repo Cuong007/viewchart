@@ -369,7 +369,7 @@ export const TradingViewTimeline = memo(function TradingViewTimeline({
     <div
       ref={containerRef}
       className={\`tradingview-widget-container \${className}\`}
-      style={{ height: typeof height === "number" ? \`${height}px\` : height, width: "100%" }}
+      style={{ height: typeof height === "number" ? \`\${height}px\` : height, width: "100%" }}
       aria-label={\`Live market news for \${symbol}\`}
     />
   );
