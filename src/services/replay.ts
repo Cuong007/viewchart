@@ -65,7 +65,7 @@ function emit(action: string, opts: { speed?: number; cursorTimestamp?: number }
 
 function dayBounds(sessionDate: string): { startMs: number; endMs: number } {
   const startMs = new Date(`${sessionDate}T00:00:00`).getTime();
-  return { startMs, endMs: Date.now() + 60_000 };
+  return { startMs, endMs: startMs + 24 * 60 * 60 * 1000 };
 }
 
 export async function getSession(
@@ -76,16 +76,13 @@ export async function getSession(
   const adapter = getAdapter();
   const { startMs, endMs } = dayBounds(sessionDate);
 
-  // The installed feeds retain at most the most recent year of 1m history.
-  // Avoid treating unrelated recent candles as history for an ancient date.
-  const historyAvailable = startMs >= Date.now() - 365 * 24 * 60 * 60 * 1000;
-  const bars = historyAvailable ? await adapter.marketData.getCandles({
+  const bars = await adapter.marketData.getCandles({
     symbol,
     timeframe: "1m",
     limit: SESSION_BAR_LIMIT,
     fromMs: startMs,
     toMs: endMs,
-  }) : [];
+  });
 
   const tickBuffer = bars
     .filter((c) => {
