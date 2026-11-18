@@ -317,29 +317,28 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
   }, [chartKey]);
 
   const { data: candles = [] } = useCandles(selectedSymbol, timeframe, candleLimit, replayVersion);
-  const { replayCandles, replayTradeEvents, replayPrice } = useReplayChartData(activeAccountId, timeframe);
+  const { replayCandles, replayTradeEvents } = useReplayChartData(activeAccountId, timeframe);
   useReplayPlayback(activeAccountId ?? "", timeframe);
 
   const { data: positions = [] } = usePositions(activeAccountId);
   const { data: orders = [] } = useOrders(activeAccountId);
   // Replay's candle close is authoritative for the position mark and floating P&L.
-  const replayMark = isReplaying && replayPrice != null && Number.isFinite(replayPrice) && replayPrice > 0
-    ? replayPrice
+  const replayMark = isReplaying && replayCandles?.length
+    ? replayCandles[replayCandles.length - 1]!.close
     : null;
   const displayPositions = useMemo(() => {
     if (replayMark == null || !Number.isFinite(replayMark) || replayMark <= 0) return positions;
     return positions.map((position) => {
-      const normalizeSymbol = (value: string) => value.toUpperCase().replace(/[^A-Z0-9]/g, "");
-      if (normalizeSymbol(position.symbolName) !== normalizeSymbol(selectedSymbol)) return position;
-      const direction = position.side === "LONG" || position.side === "BUY" ? 1 : -1;
-      const contractSize = position.contractSize ?? symbols.find((item) => normalizeSymbol(item.name) === normalizeSymbol(position.symbolName))?.contractSize ?? 1;
+      if (position.symbolName !== selectedSymbol) return position;
+      const direction = position.side === "LONG" ? 1 : -1;
+      const contractSize = position.contractSize ?? 1;
       return {
         ...position,
         currentPrice: replayMark,
         unrealizedPnl: (replayMark - position.entryPrice) * position.quantity * contractSize * direction,
       };
     });
-  }, [positions, replayMark, selectedSymbol, symbols]);
+  }, [positions, replayMark, selectedSymbol]);
   const positionPnl = useMemo(
     () => displayPositions.reduce((sum, position) => sum + (position.unrealizedPnl || 0), 0),
     [displayPositions],
