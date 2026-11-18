@@ -73,6 +73,7 @@ export function useReplayPlayback(accountId: string, _timeframe: Timeframe) {
   // ── Stable refs (no re-render on change) ────────────────
   const speedRef = useRef(replaySpeed);
   const sessionDateRef = useRef(replaySessionDate);
+  const tickBufferRef = useRef<TickBar[]>([]);
   const playbackBarsRef = useRef<TickBar[]>([]);
   const cursorIndexRef = useRef(0);
   const stepAccumulatorRef = useRef(0);
