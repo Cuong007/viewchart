@@ -1,4 +1,5 @@
 import mqtt, { type MqttClient } from "mqtt";
+import { Capacitor, CapacitorHttp } from "@capacitor/core";
 import type { CandleRequest, ConnectionState, MarketDataSource, MarketEvent, OpenChartsAdapter, Quote } from "../../src/adapter/types.ts";
 import type { Candle, Symbol } from "../../src/services/schemas.ts";
 import { createBinanceMarketData } from "../binance-adapter/binance-adapter.ts";
@@ -48,11 +49,12 @@ function aggregate(rows:Candle[],seconds:number):Candle[]{
 }
 function parseHistoryPayload(raw:unknown):{candles:Candle[];nextTime:number}{
   if(!raw||typeof raw!=="object")return{candles:[],nextTime:0};
-  const x=raw as Record<string,unknown>;
+  const outer=raw as Record<string,unknown>;
+  const x=(outer.data&&typeof outer.data==="object"?outer.data:outer) as Record<string,unknown>;
   if(Array.isArray(x.candles))return{candles:x.candles as Candle[],nextTime:Number(x.nextTime)||0};
   const ts=Array.isArray(x.t)?x.t:[],os=Array.isArray(x.o)?x.o:[],hs=Array.isArray(x.h)?x.h:[],ls=Array.isArray(x.l)?x.l:[],cs=Array.isArray(x.c)?x.c:[],vs=Array.isArray(x.v)?x.v:[];
   const candles:Candle[]=[];
-  for(let i=0;i<ts.length;i++){const time=Number(ts[i]),open=Number(os[i]),high=Number(hs[i]),low=Number(ls[i]),close=Number(cs[i]),volume=Number(vs[i]??0);if(Number.isFinite(time)&&[open,high,low,close].every(Number.isFinite))candles.push({time, timestamp:time*1000,open,high,low,close,volume:Number.isFinite(volume)?volume:0});}
+  for(let i=0;i<ts.length;i++){let time=Number(ts[i]);if(time>1e12)time=Math.floor(time/1000);const open=Number(os[i]),high=Number(hs[i]),low=Number(ls[i]),close=Number(cs[i]),volume=Number(vs[i]??0);if(Number.isFinite(time)&&time>0&&[open,high,low,close].every(Number.isFinite))candles.push({time, timestamp:time*1000,open,high,low,close,volume:Number.isFinite(volume)?volume:0});}
   return{candles,nextTime:Number(x.nextTime)||0};
 }
 export function createDnseMarketData():MarketDataSource{
@@ -86,16 +88,26 @@ export function createDnseMarketData():MarketDataSource{
       for(const base of HISTORY_URLS){
         try{
           const url=new globalThis.URL(base);url.search=new URLSearchParams({symbol:SYMBOL,resolution,from:String(cursor),to:String(pageTo)}).toString();
-          const response=await fetch(url.toString(),{method:"GET",headers:{Accept:"application/json"},signal:AbortSignal.timeout(15000)});
-          if(!response.ok)throw new Error("DNSE history HTTP "+response.status);
-          const parsed=parseHistoryPayload(await response.json());pageRows=parsed.candles;nextTime=parsed.nextTime;succeeded=true;break;
+          const headers={Accept:"application/json, text/plain, */*","Accept-Language":"vi-VN,vi;q=0.9,en-US;q=0.8","Origin":"https://banggia.dnse.com.vn","Referer":"https://banggia.dnse.com.vn/"};
+          let payload:unknown;
+          if(Capacitor.isNativePlatform()){
+            // Native HTTP avoids Android WebView CORS restrictions on DNSE's legacy chart endpoint.
+            const response=await CapacitorHttp.get({url:url.toString(),headers,connectTimeout:15000,readTimeout:15000});
+            if(response.status<200||response.status>=300)throw new Error("DNSE history HTTP "+response.status);
+            payload=response.data;
+          }else{
+            const response=await fetch(url.toString(),{method:"GET",headers,signal:AbortSignal.timeout(15000)});
+            if(!response.ok)throw new Error("DNSE history HTTP "+response.status);
+            payload=await response.json();
+          }
+          const parsed=parseHistoryPayload(payload);pageRows=parsed.candles.sort((a,b)=>a.time-b.time);nextTime=parsed.nextTime;succeeded=true;break;
         }catch(error){console.warn("[dnse] history endpoint failed",base,error);}
       }
       if(!succeeded||pageRows.length===0)break;
       const normalizedPage=req.timeframe==="4h"?aggregate(pageRows,seconds):pageRows;
       collected=merge(collected,normalizedPage);
-      const earliest=pageRows[0]!.time;
-      const next=nextTime>0?nextTime:earliest;
+      const earliest=pageRows.reduce((min,c)=>Math.min(min,c.time),Number.POSITIVE_INFINITY);
+      const next=nextTime>0?Math.min(nextTime,earliest):earliest;
       if(next<=cursor||next>=pageTo||earliest<=0||pageRows.length<2)break;
       pageTo=next;
       if(collected.length>=wanted&&req.fromMs==null)break;
