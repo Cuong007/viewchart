@@ -87,6 +87,7 @@ jobs:
           VITE_CSP_ALLOW_TRADINGVIEW: "1"
         run: |
           npm run typecheck
+          npm run test
           npm run build
 
       - name: Sync web assets and build APK
