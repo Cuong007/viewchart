@@ -188,7 +188,7 @@ function BinanceDOMPanel({ symbol }: { symbol: string }) {
 `;
   const insertAt = 'function SimulatedDOMPanel(';
   if (!dom.includes(insertAt)) throw new Error("Could not find DOM component insertion point.");
-  dom = dom.replace(insertAt, component + "\\n" + insertAt);
+  dom = dom.replace(insertAt, component + "\n" + insertAt);
   writeFileSync(domPath, dom);
 }
 
