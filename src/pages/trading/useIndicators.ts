@@ -220,6 +220,9 @@ export function useIndicators(
       }
     }
     for (const custom of customIndicators) {
+      // Overlay modules (for example FVGIndicator) manage their own canvas and
+      // chart lifecycle; they are mounted by ChartPanel, not as line series.
+      if (/\\bFVGIndicator\\b/.test(custom.code)) continue;
       try {
         const calculate = new Function("candles", "params", `"use strict"; return (${custom.code});`) as
           (candles: typeof indCandles, params: Record<string, number>) => Array<{ time: number; value: number }>;
