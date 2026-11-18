@@ -110,18 +110,27 @@ export function TradingPage() {
       return next;
     });
   };
+  const persistCustomIndicators = (next: CustomIndicatorDefinition[]) => {
+    if (!safeStorage.setJSON("opencharts_custom_indicators", next)) {
+      console.error("Unable to persist custom indicators to local storage.");
+    }
+    return next;
+  };
   const saveCustomIndicator = (name: string, code: string) => {
-    setCustomIndicators((prev) => {
-      const next = [...prev, { id: crypto.randomUUID(), name: name.trim() || "Custom Indicator", code, color: "#a78bfa" }];
-      safeStorage.setItem("opencharts_custom_indicators", JSON.stringify(next));
-      return next;
-    });
+    setCustomIndicators((prev) => persistCustomIndicators([
+      ...prev,
+      { id: crypto.randomUUID(), name: name.trim() || "Custom Indicator", code, color: "#a78bfa", enabled: false },
+    ]));
+  };
+  const toggleCustomIndicator = (id: string) => {
+    setCustomIndicators((prev) => persistCustomIndicators(
+      prev.map((item) => item.id === id ? { ...item, enabled: item.enabled !== true } : item),
+    ));
   };
   const deleteCustomIndicator = (id: string) => {
     setCustomIndicators((prev) => {
       const next = prev.filter((item) => item.id !== id);
-      safeStorage.setItem("opencharts_custom_indicators", JSON.stringify(next));
-      return next;
+      return persistCustomIndicators(next);
     });
   };
   const deleteIndicator = (type: IndicatorType) => {
@@ -320,6 +329,7 @@ export function TradingPage() {
             onSaveCustomIndicator={saveCustomIndicator}
             onDeleteIndicator={deleteIndicator}
             onDeleteCustomIndicator={deleteCustomIndicator}
+            onToggleCustomIndicator={toggleCustomIndicator}
             journalEntries={journalEntries}
             journalLoading={journalLoading}
             onCreateJournal={createJournal}
