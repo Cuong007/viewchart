@@ -50,20 +50,23 @@ export function useIndicators(
   const colors = isDark ? CHART_COLORS.dark : CHART_COLORS.light;
 
   useEffect(() => {
-    if (!chartRef.current || !candleSeriesRef.current || chartData.length === 0) return;
-
     const chart = chartRef.current;
-    const indCandles = toIndicatorCandles(chartData);
-
-    // Remove old indicator series
-    for (const [_key, series] of indicatorSeriesRef.current) {
-      try {
-        chart.removeSeries(series);
-      } catch {
-        /* already removed */
+    // Always remove the previous indicator drawings first, including when the
+    // new symbol temporarily has no candles. Returning before this cleanup
+    // leaves stale indicator series painted over the next symbol.
+    if (chart) {
+      for (const series of indicatorSeriesRef.current.values()) {
+        try {
+          chart.removeSeries(series);
+        } catch {
+          /* chart/series may already have been disposed */
+        }
       }
     }
     indicatorSeriesRef.current.clear();
+
+    if (!chart || !candleSeriesRef.current || chartData.length === 0) return;
+    const indCandles = toIndicatorCandles(chartData);
 
     for (const type of activeIndicators) {
       const config = INDICATOR_REGISTRY.find((r) => r.type === type);
@@ -249,6 +252,21 @@ export function useIndicators(
         console.error(`Custom indicator ${custom.name} failed:`, error);
       }
     }
+    // Remove every generated series on disable, symbol switch, empty data,
+    // or unmount. This also covers custom indicators rendered as line series.
+    return () => {
+      const currentChart = chartRef.current;
+      if (currentChart) {
+        for (const series of indicatorSeriesRef.current.values()) {
+          try {
+            currentChart.removeSeries(series);
+          } catch {
+            /* chart may already have been disposed */
+          }
+        }
+      }
+      indicatorSeriesRef.current.clear();
+    };
     // chartRef/candleSeriesRef are stable refs; colors derived from isDark dep.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeIndicators, chartData, isDark, indicatorParams, indicatorCodeOverrides, customIndicators]);
