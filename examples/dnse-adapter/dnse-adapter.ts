@@ -52,13 +52,15 @@ function aggregate(rows:Candle[],seconds:number):Candle[] {
   return [...map.values()].sort((a,b)=>a.time-b.time);
 }
 export function createDnseMarketData(): MarketDataSource {
-  const crypto=createBinanceMarketData(), handlers=new Set<(e:MarketEvent)=>void>(), listeners=new Set<(s:ConnectionState)=>void>(), history:Candle[]=[];
+  const crypto=createBinanceMarketData(), handlers=new Set<(e:MarketEvent)=>void>(), listeners=new Set<(s:ConnectionState)=>void>();
+  const history:Candle[]=(()=>{try{const raw=globalThis.localStorage?.getItem("opencharts_dnse_vn30_history_v1");const parsed=raw?JSON.parse(raw):[];return Array.isArray(parsed)?parsed.filter((x):x is Candle=>x&&Number.isFinite(x.time)&&Number.isFinite(x.close)).slice(-20000):[];}catch{return [];}})();
   let client:MqttClient|null=null, state:ConnectionState="disconnected", closed=false;
   const setState=(s:ConnectionState)=>{state=s;for(const fn of [...listeners])fn(s);};
   const emit=(e:MarketEvent)=>{for(const fn of [...handlers])fn(e);};
   const ingest=(c:Candle)=>{
     const i=history.findIndex(x=>x.time===c.time);if(i>=0)history[i]=c;else history.push(c);
     history.sort((a,b)=>a.time-b.time);if(history.length>20000)history.splice(0,history.length-20000);
+    try{globalThis.localStorage?.setItem("opencharts_dnse_vn30_history_v1",JSON.stringify(history));}catch{/* cache is best-effort */}
     emit({type:"tick",symbol:SYMBOL,bid:c.close,ask:c.close,timestamp:c.time*1000});
     for(const [tf,seconds] of Object.entries(FRAMES)){const bar=aggregate(history,seconds).find(x=>x.time===Math.floor(c.time/seconds)*seconds);if(bar)emit({type:"candle",symbol:SYMBOL,timeframe:tf,open:bar.open,high:bar.high,low:bar.low,close:bar.close,volume:bar.volume,timestamp:bar.time*1000});}
   };
