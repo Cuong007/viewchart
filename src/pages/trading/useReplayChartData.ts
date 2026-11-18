@@ -4,12 +4,13 @@ import { useReplaySession } from "../../services/queries.ts";
 import type { Candle } from "../../services/schemas.ts";
 import { useTradingStore } from "../../services/store.tsx";
 import { toast } from "../../services/toast.ts";
+import { TF_INTERVAL_MS, type Timeframe } from "./constants.ts";
 
 type ReplaySessionData = NonNullable<Awaited<ReturnType<typeof api.replayGetSession>>>;
 type ReplayTradeEvents = ReplaySessionData["tradeEvents"];
 type TickBar = ReplaySessionData["tickBuffer"][number];
 
-/** All 1m bars at or before the playback cursor, as chart candles. */
+/** Source replay bars aggregated to the selected chart timeframe. */
 function sliceBufferToCursor(buf: TickBar[], cursorMs: number | null): Candle[] {
   const cutoff = cursorMs ?? buf[0]?.t ?? 0;
   const out: Candle[] = [];
@@ -18,6 +19,19 @@ function sliceBufferToCursor(buf: TickBar[], cursorMs: number | null): Candle[] 
     out.push({ time: b.t, open: b.o, high: b.h, low: b.l, close: b.c, volume: b.v });
   }
   return out;
+}
+
+function aggregateToTimeframe(buf: TickBar[], timeframe: Timeframe, cursorMs: number | null): Candle[] {
+  const interval = TF_INTERVAL_MS[timeframe] ?? 60_000;
+  const grouped = new Map<number, Candle>();
+  for (const bar of buf) {
+    if (cursorMs != null && bar.t > cursorMs) break;
+    const bucket = Math.floor(bar.t / interval) * interval;
+    const prev = grouped.get(bucket);
+    if (!prev) grouped.set(bucket, { time: bucket, open: bar.o, high: bar.h, low: bar.l, close: bar.c, volume: bar.v });
+    else grouped.set(bucket, { ...prev, high: Math.max(prev.high, bar.h), low: Math.min(prev.low, bar.l), close: bar.c, volume: (prev.volume ?? 0) + bar.v });
+  }
+  return [...grouped.values()];
 }
 
 function emptySessionReason(data: ReplaySessionData, sessionDate: string): string {
@@ -38,7 +52,7 @@ function emptySessionReason(data: ReplaySessionData, sessionDate: string): strin
  * While `replayCandles` is non-null the caller must suppress the live feed
  * (tick / liveCandle props) so real-time data can't paint over the playback.
  */
-export function useReplayChartData(accountId: string | null): {
+export function useReplayChartData(accountId: string | null, timeframe: Timeframe): {
   replayCandles: Candle[] | null;
   replayTradeEvents: ReplayTradeEvents | undefined;
 } {
@@ -73,8 +87,8 @@ export function useReplayChartData(accountId: string | null): {
   // Progressive reveal: all 1m bars at or before the playback cursor.
   const replayCandles = useMemo<Candle[] | null>(() => {
     if (!isReplaying || !data || data.tickBuffer.length === 0) return null;
-    return sliceBufferToCursor(data.tickBuffer, replayCursorTimestamp);
-  }, [isReplaying, data, replayCursorTimestamp]);
+    return aggregateToTimeframe(data.tickBuffer, timeframe, replayCursorTimestamp);
+  }, [isReplaying, data, replayCursorTimestamp, timeframe]);
 
   return {
     replayCandles,
