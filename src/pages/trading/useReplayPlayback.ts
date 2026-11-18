@@ -19,19 +19,6 @@ type TickBar = { t: number; o: number; h: number; l: number; c: number; v: numbe
 
 type MutableRef<T> = { current: T };
 
-/** Advance the tick index up to the cursor, chunked to MAX_TICKS_PER_FRAME. */
-function advanceTickIndex(buf: TickBar[], idxRef: MutableRef<number>, cursorMs: number): void {
-  let chunk = 0;
-  while (
-    idxRef.current < buf.length &&
-    (buf[idxRef.current]?.t ?? Infinity) <= cursorMs &&
-    chunk < MAX_TICKS_PER_FRAME
-  ) {
-    idxRef.current++;
-    chunk++;
-  }
-}
-
 /** Throttled store write (drives scrubber + HUD timestamp). */
 function syncCursorToStore(now: number, lastSyncRef: MutableRef<number>, cursorMs: number): void {
   if (now - lastSyncRef.current < STORE_SYNC_MS) return;
