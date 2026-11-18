@@ -219,7 +219,20 @@ export function useIndicators(
         }
       }
     }
+    for (const custom of customIndicators) {
+      try {
+        const calculate = new Function("candles", "params", `"use strict"; return (${custom.code});`) as
+          (candles: typeof indCandles, params: Record<string, number>) => Array<{ time: number; value: number }>;
+        const points = calculate(indCandles, {});
+        if (!Array.isArray(points)) continue;
+        const series = chart.addLineSeries({ color: custom.color || "#a78bfa", lineWidth: 2, priceScaleId: "right" });
+        series.setData(points.filter((p) => Number.isFinite(p?.time) && Number.isFinite(p?.value)).map((p) => ({ time: p.time as Time, value: p.value })));
+        indicatorSeriesRef.current.set(`custom:${custom.id}`, series);
+      } catch (error) {
+        console.error(`Custom indicator ${custom.name} failed:`, error);
+      }
+    }
     // chartRef/candleSeriesRef are stable refs; colors derived from isDark dep.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeIndicators, chartData, isDark, indicatorParams]);
+  }, [activeIndicators, chartData, isDark, indicatorParams, indicatorCodeOverrides, customIndicators]);
 }
