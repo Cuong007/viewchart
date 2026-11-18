@@ -84,6 +84,8 @@ export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
   const lastServerSyncRef = useRef(0);
   const rafIdRef = useRef<number | null>(null);
   const isActiveRef = useRef(false);
+  const latestBufferEndRef = useRef<number | null>(null);
+  const lastBufferGrowthAtRef = useRef(0);
 
   // Keep speed + sessionDate refs current without restarting the loop
   useEffect(() => {
@@ -108,6 +110,11 @@ export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
   useEffect(() => {
     if (sessionData?.tickBuffer) {
       tickBufferRef.current = sessionData.tickBuffer;
+      const newestBarTime = sessionData.tickBuffer[sessionData.tickBuffer.length - 1]?.t ?? null;
+      if (newestBarTime != null && newestBarTime !== latestBufferEndRef.current) {
+        latestBufferEndRef.current = newestBarTime;
+        lastBufferGrowthAtRef.current = Date.now();
+      }
       const interval = TF_INTERVAL_MS[timeframe] ?? 60_000;
       const grouped = new Map<number, TickBar>();
       for (const bar of sessionData.tickBuffer) {
