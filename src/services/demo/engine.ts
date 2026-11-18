@@ -56,6 +56,8 @@ const orders: Order[] = [];
 const closed: ClosedPosition[] = [];
 const fills: Fill[] = [];
 const lastPrice = new Map<string, number>();
+// Symbols controlled by Bar Replay must never be overwritten by live market ticks.
+const replayControlledSymbols = new Set<string>();
 
 // ── Numeric helpers ───────────────────────────────────────────────────────
 
@@ -652,14 +654,11 @@ function stopExit(pos: Position, price: number): number | null {
   return null;
 }
 
-/** Called by the feed on every replayed tick: fills pending orders, marks positions, fires SL/TP. */
-export function mark(symbol: string, price: number): void {
+/** Apply a price update to paper positions and pending orders. */
+function applyMark(symbol: string, price: number): void {
   if (!Number.isFinite(price) || price <= 0) return;
   lastPrice.set(symbol, price);
-
   let changed = fillTriggered(symbol, price);
-
-  // Iterate a snapshot: closing a position mutates `positions` mid-loop.
   for (const pos of positions.filter((p) => p.symbolName === symbol)) {
     const exit = stopExit(pos, price);
     if (exit != null) {
@@ -679,8 +678,25 @@ export function mark(symbol: string, price: number): void {
       averagePrice: pos.entryPrice,
     });
   }
-
   if (changed) settle();
+}
+
+/** Live feed updates are ignored for a symbol while Bar Replay owns its price. */
+export function mark(symbol: string, price: number): void {
+  if (replayControlledSymbols.has(symbol)) return;
+  applyMark(symbol, price);
+}
+
+/** Set the authoritative historical price and run fills, P&L and SL/TP at that price. */
+export function markReplay(symbol: string, price: number): void {
+  if (!Number.isFinite(price) || price <= 0) return;
+  replayControlledSymbols.add(symbol);
+  applyMark(symbol, price);
+}
+
+/** Release replay price ownership when playback stops or the session changes. */
+export function clearReplayPrices(): void {
+  replayControlledSymbols.clear();
 }
 
 /** Test seam: reset every engine mutable so suites start from a clean account. */
@@ -690,6 +706,7 @@ export function __resetForTests(): void {
   closed.length = 0;
   fills.length = 0;
   lastPrice.clear();
+  replayControlledSymbols.clear();
   account.balance = STARTING_BALANCE;
   account.equity = STARTING_BALANCE;
   account.margin = 0;
