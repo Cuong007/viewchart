@@ -21,10 +21,20 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Keep Android workflow while importing upstream
+      - name: Keep Android workflow and app feature overrides
         run: |
-          mkdir -p /tmp/viewchart-workflows
+          mkdir -p /tmp/viewchart-workflows /tmp/viewchart-overrides
           cp .github/workflows/android-apk.yml /tmp/viewchart-workflows/android-apk.yml
+          for path in \
+            src/pages/TradingPage.tsx \
+            src/pages/trading/BottomPanel.tsx \
+            src/pages/trading/ChartPanel.tsx \
+            src/pages/trading/useIndicators.ts \
+            src/pages/trading/useReplayPlayback.ts \
+            src/pages/trading/ReplayHUD.tsx; do
+            mkdir -p "/tmp/viewchart-overrides/$(dirname "$path")"
+            cp "$path" "/tmp/viewchart-overrides/$path"
+          done
 
       - name: Import OpenCharts source
         run: |
@@ -41,6 +51,13 @@ jobs:
 
       - name: Apply Android mobile tools overlay
         run: node .github/patches/patch-mobile-panels.mjs
+
+      - name: Restore OpenCharts app feature overrides
+        run: |
+          # The upstream import intentionally refreshes the base project. Restore
+          # our maintained feature files afterwards so replay/indicator changes
+          # are actually included in the APK instead of being silently discarded.
+          cp -a /tmp/viewchart-overrides/. ./
 
       - name: Set up Java
         uses: actions/setup-java@v4
