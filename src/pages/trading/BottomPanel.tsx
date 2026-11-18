@@ -18,11 +18,12 @@ import { Button } from "../../components/ui/button.tsx";
 import { TradeJournalPanel } from "../../components/TradingDialogs.tsx";
 import {
   TradingViewEconomicCalendar,
+  TradingViewTimeline,
   isTradingViewAllowed,
 } from "../../components/TradingViewWidgets.tsx";
 import { toast } from "../../services/toast.ts";
 import { formatCurrency, formatNumber, formatDate, cn, pnlClass } from "../../lib/utils.ts";
-import { MOCK_EVENTS, MOCK_NEWS } from "./constants.ts";
+import { MOCK_EVENTS } from "./constants.ts";
 import { PositionsTable } from "./PositionsTable.tsx";
 import { OrdersTable } from "./OrdersTable.tsx";
 import { computeLivePnl, computeLivePrice } from "../../lib/livePnl.ts";
@@ -546,33 +547,14 @@ function EconomicCalendar() {
   );
 }
 
-// ── News Feed ────────────────────────────────────────────────
+// ── News // ── Live News Feed ───────────────────────────────────────────
 function NewsFeed() {
-  const impactStyle = {
-    bullish: "text-buy",
-    bearish: "text-sell",
-    neutral: "text-muted-foreground",
-  };
-
   return (
-    <div className="divide-y divide-border/30">
-      <div className="px-3 py-1.5 bg-secondary/40 text-[10px] text-muted-foreground flex items-center gap-1.5">
-        <span className="font-medium uppercase tracking-wide">Sample data</span>
-        <span>— OpenCharts ships no news feed; connect a provider to make this live.</span>
+    <div className="h-full min-h-[360px] overflow-y-auto">
+      <div className="px-3 py-1.5 bg-secondary/40 text-[10px] text-muted-foreground">
+        Live market headlines provided by TradingView. Stories are informational, not trading advice.
       </div>
-      {MOCK_NEWS.map((item, i) => (
-        <div key={i} className="px-3 py-2 hover:bg-secondary/30 cursor-pointer">
-          <div className="flex items-center gap-2 text-[10px] text-muted-foreground mb-0.5">
-            <span>{item.time}</span>
-            <span className="text-muted-foreground">|</span>
-            <span>{item.source}</span>
-            <span className={cn("font-semibold", impactStyle[item.impact])}>
-              {item.impact.toUpperCase()}
-            </span>
-          </div>
-          <p className="text-xs leading-snug">{item.title}</p>
-        </div>
-      ))}
+      <TradingViewTimeline symbol="BINANCE:BTCUSDT" theme="dark" height={520} />
     </div>
   );
 }
