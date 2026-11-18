@@ -138,6 +138,7 @@ function BinanceDOMPanel({ symbol }: { symbol: string }) {
             const data = JSON.parse(String(event.data)) as BinanceDepth;
             if (active && Array.isArray(data.bids) && Array.isArray(data.asks)) {
               setBook({ bids: data.bids, asks: data.asks, lastUpdateId: data.lastUpdateId });
+              setSnapshotAt(Date.now());
             }
           } catch { /* Ignore malformed depth frames. */ }
         };
@@ -186,7 +187,7 @@ function BinanceDOMPanel({ symbol }: { symbol: string }) {
       </div>
       <div className="flex items-center justify-between px-3 py-1 text-[10px] text-muted-foreground">
         <span>{symbol.replace(/USD$/, "/USDT")}</span>
-        <span>{book ? "Top 20 levels" + (snapshotAt ? " · " + new Date(snapshotAt).toLocaleTimeString() : "") : "Đang tải order book…"}</span>
+        <span>{book ? "Top 20 · Cập nhật " + (snapshotAt ? new Date(snapshotAt).toLocaleTimeString() : "—") : "Đang tải order book…"}</span>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         <table className="w-full text-[11px]">
@@ -227,6 +228,18 @@ function BinanceDOMPanel({ symbol }: { symbol: string }) {
   const panelStart = dom.indexOf("export function DOMPanel", syntheticStart);
   if (syntheticStart >= 0 && panelStart >= 0) dom = dom.slice(0, syntheticStart) + dom.slice(panelStart);
   writeFileSync(domPath, dom);
+}
+
+// Keep the lower trading workspace usable on phones. The desktop retains its
+// content-driven height; mobile can scroll through positions, orders, history,
+// journal, calendar and news instead of clipping the panel to 150px.
+const bottomPanelPath = "src/pages/trading/BottomPanel.tsx";
+let bottomPanel = readFileSync(bottomPanelPath, "utf8");
+bottomPanel = bottomPanel.replace(
+  'max-h-[150px] md:max-h-none',
+  'max-h-[38vh] md:max-h-none',
+);
+writeFileSync(bottomPanelPath, bottomPanel);
 }
 
 // Normalize tick-size powers of ten to decimal precision (avoid 0.000099999999…).
