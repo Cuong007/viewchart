@@ -302,8 +302,8 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
   }, [chartKey]);
 
   const { data: candles = [] } = useCandles(selectedSymbol, timeframe, candleLimit, replayVersion);
-  const { replayCandles, replayTradeEvents } = useReplayChartData(activeAccountId);
-  useReplayPlayback(activeAccountId ?? "");
+  const { replayCandles, replayTradeEvents } = useReplayChartData(activeAccountId, timeframe);
+  useReplayPlayback(activeAccountId ?? "", timeframe);
 
   const { data: positions = [] } = usePositions(activeAccountId);
   const { data: orders = [] } = useOrders(activeAccountId);
