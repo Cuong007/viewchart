@@ -50,7 +50,7 @@ export function useIndicators(
 
       switch (type) {
         case "SMA": {
-          const data = sma(indCandles, (indicatorParams[type]?.period ?? (indicatorParams[type]?.period ?? config.defaultParams.period))!);
+          const data = sma(indCandles, (indicatorParams[type]?.period ?? config.defaultParams.period)!);
           const s = chart.addLineSeries({
             color: config.color,
             lineWidth: 1,
@@ -61,7 +61,7 @@ export function useIndicators(
           break;
         }
         case "EMA": {
-          const data = ema(indCandles, config.defaultParams.period!);
+          const data = ema(indCandles, indicatorParams[type]?.period ?? config.defaultParams.period!);
           const s = chart.addLineSeries({
             color: config.color,
             lineWidth: 1,
@@ -72,7 +72,7 @@ export function useIndicators(
           break;
         }
         case "RSI": {
-          const data = rsi(indCandles, config.defaultParams.period);
+          const data = rsi(indCandles, indicatorParams[type]?.period ?? config.defaultParams.period);
           const s = chart.addLineSeries({ color: config.color, lineWidth: 1, priceScaleId: "rsi" });
           s.setData(data.map((p) => ({ time: p.time as Time, value: p.value })));
           indicatorSeriesRef.current.set("RSI", s);
@@ -156,7 +156,7 @@ export function useIndicators(
           break;
         }
         case "ATR": {
-          const data = atr(indCandles, config.defaultParams.period);
+          const data = atr(indCandles, indicatorParams[type]?.period ?? config.defaultParams.period);
           const s = chart.addLineSeries({ color: config.color, lineWidth: 1, priceScaleId: "atr" });
           s.setData(data.map((p) => ({ time: p.time as Time, value: p.value })));
           indicatorSeriesRef.current.set("ATR", s);
