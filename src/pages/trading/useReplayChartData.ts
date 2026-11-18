@@ -10,6 +10,19 @@ type ReplaySessionData = NonNullable<Awaited<ReturnType<typeof api.replayGetSess
 type ReplayTradeEvents = ReplaySessionData["tradeEvents"];
 type TickBar = ReplaySessionData["tickBuffer"][number];
 
+function aggregateToTimeframe(buf: TickBar[], timeframe: Timeframe, cursorMs: number | null): Candle[] {
+  const interval = TF_INTERVAL_MS[timeframe] ?? 60_000;
+  const grouped = new Map<number, Candle>();
+  for (const bar of buf) {
+    if (cursorMs != null && bar.t > cursorMs) break;
+    const bucket = Math.floor(bar.t / interval) * interval;
+    const prev = grouped.get(bucket);
+    if (!prev) grouped.set(bucket, { time: bucket, open: bar.o, high: bar.h, low: bar.l, close: bar.c, volume: bar.v });
+    else grouped.set(bucket, { ...prev, high: Math.max(prev.high, bar.h), low: Math.min(prev.low, bar.l), close: bar.c, volume: (prev.volume ?? 0) + bar.v });
+  }
+  return [...grouped.values()];
+}
+
 function emptySessionReason(data: ReplaySessionData, sessionDate: string): string {
   return data.meta?.primarySymbol
     ? `No 1m candle history stored for ${data.meta.primarySymbol} on ${sessionDate}`
