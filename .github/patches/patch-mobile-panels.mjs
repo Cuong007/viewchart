@@ -193,7 +193,7 @@ function BinanceDOMPanel({ symbol }: { symbol: string }) {
   if (simulatedIndex >= 0) dom = dom.slice(0, simulatedIndex) + "\n";
   dom = dom.replace('import { lazy, Suspense, useEffect, useMemo, useState } from "react";', 'import { lazy, Suspense, useEffect, useState } from "react";');
   dom = dom.replace('import { formatNumber, cn } from "../../lib/utils.ts";', 'import { formatNumber } from "../../lib/utils.ts";');
-  const syntheticStart = dom.indexOf("/**\\n * Deterministic pseudo-random depth");
+  const syntheticStart = dom.indexOf("/**\n * Deterministic pseudo-random depth");
   const panelStart = dom.indexOf("export function DOMPanel", syntheticStart);
   if (syntheticStart >= 0 && panelStart >= 0) dom = dom.slice(0, syntheticStart) + dom.slice(panelStart);
   writeFileSync(domPath, dom);
