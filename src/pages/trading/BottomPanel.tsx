@@ -103,7 +103,7 @@ function DataSourcesPanel() {
   const [label, setLabel] = useState("");
   const [category, setCategory] = useState("Kim loại");
   const saveSources = (v: ManagedDataSource[]) => { setSources(v); safeStorage.setJSON(sourceKey, v); };
-  const saveInstruments = (v: ManagedInstrument[]) => { setInstruments(v); safeStorage.setJSON(instrumentKey, v); };
+  const saveInstruments = (v: ManagedInstrument[]) => { setInstruments(v); safeStorage.setJSON(instrumentKey, v); window.dispatchEvent(new Event("opencharts:instruments-updated")); };
   const saveSource = () => {
     if (!name.trim() || !endpoint.trim()) { toast.warning("Thiếu thông tin", "Hãy nhập tên nguồn và endpoint."); return; }
     const id = editing || crypto.randomUUID();
