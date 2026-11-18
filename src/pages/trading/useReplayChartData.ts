@@ -3,6 +3,7 @@ import { api } from "../../services/api.ts";
 import { useReplaySession } from "../../services/queries.ts";
 import type { Candle } from "../../services/schemas.ts";
 import { useTradingStore } from "../../services/store.tsx";
+import { mark } from "../../services/demo/engine.ts";
 import { toast } from "../../services/toast.ts";
 import { TF_INTERVAL_MS, type Timeframe } from "./constants.ts";
 
@@ -73,11 +74,18 @@ export function useReplayChartData(accountId: string | null, timeframe: Timefram
     useTradingStore.getState().onReplayStateChanged("stopped");
   }, [isReplaying, data, replaySessionDate, accountId]);
 
-  // Progressive reveal: all 1m bars at or before the playback cursor.
+  // Feed the replay cursor price into the paper-trading engine as well as the chart.
+  // This keeps market fills, floating P&L and SL/TP evaluation on historical time.
   const replayCandles = useMemo<Candle[] | null>(() => {
     if (!isReplaying || !data || data.tickBuffer.length === 0) return null;
     return aggregateToTimeframe(data.tickBuffer, timeframe, replayCursorTimestamp);
   }, [isReplaying, data, replayCursorTimestamp, timeframe]);
+
+  useEffect(() => {
+    if (!isReplaying || !replayCandles?.length) return;
+    const currentBar = replayCandles[replayCandles.length - 1];
+    if (currentBar) mark(selectedSymbol, currentBar.close);
+  }, [isReplaying, replayCandles, selectedSymbol]);
 
   return {
     replayCandles,
