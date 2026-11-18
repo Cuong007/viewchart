@@ -18,7 +18,7 @@ function formatReplayTime(epochMs: number): string {
 }
 
 export function ReplayHUD({ accountId }: { accountId: string }) {
-  const { isReplaying, replayPaused, replaySpeed, replayCursorTimestamp, setReplaySessionDate } =
+  const { isReplaying, replayPaused, replaySpeed, replayCursorTimestamp, selectedSymbol, setReplaySessionDate } =
     useTradingStore();
 
   const storageKey = `replay_session_date_${accountId}`;
@@ -33,7 +33,7 @@ export function ReplayHUD({ accountId }: { accountId: string }) {
 
   const handleStart = () => {
     setReplaySessionDate(sessionDate);
-    api.replayStart(accountId, sessionDate, replaySpeed).catch(() => null);
+    api.replayStart(accountId, sessionDate, replaySpeed, selectedSymbol).catch(() => null);
   };
 
   const handlePause = () => {
