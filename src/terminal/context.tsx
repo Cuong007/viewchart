@@ -19,7 +19,7 @@ import {
 } from "../hooks/useChartPreferences.ts";
 import { useTradeSound } from "../hooks/useTradeSound.ts";
 import { safeStorage } from "../lib/safe-storage.ts";
-import type { IndicatorType } from "../lib/indicators.ts";
+import { INDICATOR_REGISTRY, type IndicatorType } from "../lib/indicators.ts";
 import type { CreateJournalEntryInput, UpdateJournalEntryInput } from "../services/api/journal.ts";
 import { api } from "../services/api.ts";
 import {
@@ -129,6 +129,21 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
   // ── Chart configuration
   const chartPrefs = useChartPreferences();
   const [activeIndicators, setActiveIndicators] = useState<IndicatorType[]>([]);
+  const [indicatorParams, setIndicatorParams] = useState<Record<IndicatorType, Record<string, number>>>(() => {
+    const defaults = Object.fromEntries(INDICATOR_REGISTRY.map((item) => [item.type, { ...item.defaultParams }])) as Record<IndicatorType, Record<string, number>>;
+    try {
+      const saved = safeStorage.getItem("opencharts_indicator_params");
+      return saved ? { ...defaults, ...JSON.parse(saved) } : defaults;
+    } catch { return defaults; }
+  });
+  const updateIndicatorParam = useCallback((type: IndicatorType, key: string, value: number) => {
+    if (!Number.isFinite(value) || value <= 0) return;
+    setIndicatorParams((prev) => {
+      const next = { ...prev, [type]: { ...prev[type], [key]: Math.floor(value) } };
+      safeStorage.setItem("opencharts_indicator_params", JSON.stringify(next));
+      return next;
+    });
+  }, []);
   const toggleIndicator = useCallback((type: IndicatorType) => {
     setActiveIndicators((prev) =>
       prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
@@ -445,7 +460,9 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
 
     chartPrefs,
     activeIndicators,
+    indicatorParams,
     toggleIndicator,
+    updateIndicatorParam,
     clearIndicators,
     activePlugins,
     togglePlugin,
