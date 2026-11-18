@@ -42,7 +42,10 @@ jobs:
             src/pages/trading/useReplayChartData.ts \
             src/terminal/context.tsx \
             src/terminal/use-terminal.ts \
-            src/pages/trading/ReplayHUD.tsx; do
+            src/pages/trading/ReplayHUD.tsx \
+            src/services/demo/instruments.ts \
+            src/services/demo/feed.ts \
+            src/pages/trading/OrderPanel.tsx; do
             mkdir -p "/tmp/viewchart-overrides/$(dirname "$path")"
             cp "$path" "/tmp/viewchart-overrides/$path"
           done
