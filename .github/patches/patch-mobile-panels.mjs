@@ -78,24 +78,20 @@ writeFileSync(path, source);
 // Android network compatibility: explicitly permit Binance REST + secure WebSocket.
 const cspPath = "src/hyperliquid/compliance/csp.ts";
 let csp = readFileSync(cspPath, "utf8");
-const cspAnchor = '  "https://sepolia-rollup.arbitrum.io",\n];';
-const cspOrigins = [
-  '  "https://sepolia-rollup.arbitrum.io",',
-  '  "https://api.binance.com",',
-  '  "https://data-api.binance.vision",',
-  '  "https://stream.binance.com:9443",',
-  '  "wss://stream.binance.com:9443",',
-  '];',
-].join("\n");
-if (!csp.includes('"wss://stream.binance.com:9443"')) {
-  if (!csp.includes(cspAnchor)) throw new Error("Could not find CSP connect-origin anchor.");
-  csp = csp.replace(cspAnchor, cspOrigins);
-}
 csp = csp.replace(
   'return u.protocol === "https:" || u.protocol === "http:" ? u.origin : undefined;',
   'return ["https:", "http:", "wss:", "ws:"].includes(u.protocol) ? u.origin : undefined;',
 );
 writeFileSync(cspPath, csp);
+ 
+// Normalize tick-size powers of ten to decimal precision (avoid 0.000099999999…).
+const symbolsPath = "src/hyperliquid/symbols.ts";
+let symbols = readFileSync(symbolsPath, "utf8");
+symbols = symbols.replace("return 10 ** -decimals;", "return Number((10 ** -decimals).toFixed(decimals));");
+if (!symbols.includes("return Number((10 ** -decimals).toFixed(decimals));")) {
+  throw new Error("Could not normalize Hyperliquid tick-size precision.");
+}
+writeFileSync(symbolsPath, symbols);
 
 // Use Binance's public market-data mirror for REST candles/quotes. The
 // official WebSocket remains the live tick transport.
