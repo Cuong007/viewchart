@@ -55,7 +55,9 @@ export interface TerminalContextValue {
   // Chart configuration
   chartPrefs: ReturnType<typeof useChartPreferences>;
   activeIndicators: IndicatorType[];
+  indicatorParams: Record<IndicatorType, Record<string, number>>;
   toggleIndicator: (type: IndicatorType) => void;
+  updateIndicatorParam: (type: IndicatorType, key: string, value: number) => void;
   clearIndicators: () => void;
   activePlugins: string[];
   togglePlugin: (id: string) => void;
