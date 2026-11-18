@@ -190,8 +190,6 @@ export function BottomPanel({
       icon: TrendingUp,
       count: openPositions.length,
     },
-    { key: "news", label: "News", icon: Newspaper },
-    { key: "indicators", label: "Indicators", icon: Activity },
     {
       key: "orders",
       label: "Orders",
