@@ -220,6 +220,7 @@ export function useIndicators(
       }
     }
     for (const custom of customIndicators) {
+      if (custom.enabled !== true) continue;
       // Overlay modules (for example FVGIndicator) manage their own canvas and
       // chart lifecycle; they are mounted by ChartPanel, not as line series.
       if (/\\bFVGIndicator\\b/.test(custom.code)) continue;
