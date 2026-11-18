@@ -382,8 +382,8 @@ export function BottomPanel({
                     <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: indicator.color }} />
                   </label>
                   <div className="flex justify-end gap-2">
-                    <Button size="xs" variant="outline" onClick={() => beginEditIndicator(indicator.type)}><Pencil className="h-3 w-3 mr-1" /> Sửa</Button>
-                    <Button size="xs" variant="outline" onClick={() => { if (window.confirm("Xóa " + indicator.label + " khỏi biểu đồ?")) onDeleteIndicator(indicator.type); }}><Trash2 className="h-3 w-3 mr-1" /> Xóa</Button>
+                    <Button size="sm" variant="outline" onClick={() => beginEditIndicator(indicator.type)}><Pencil className="h-3 w-3 mr-1" /> Sửa</Button>
+                    <Button size="sm" variant="outline" onClick={() => { if (window.confirm("Xóa " + indicator.label + " khỏi biểu đồ?")) onDeleteIndicator(indicator.type); }}><Trash2 className="h-3 w-3 mr-1" /> Xóa</Button>
                   </div>
                   {Object.entries(indicator.defaultParams).map(([key, defaultValue]) => (
                     <label key={key} className="flex items-center justify-between gap-3 pl-6 text-muted-foreground">
@@ -403,8 +403,8 @@ export function BottomPanel({
                 <div className="font-medium">{item.name}</div>
                 <div className="text-muted-foreground">Custom · JavaScript</div>
                 <div className="flex justify-end gap-2">
-                  <Button size="xs" variant="outline" onClick={() => beginEditCustom(item)}><Pencil className="h-3 w-3 mr-1" /> Sửa</Button>
-                  <Button size="xs" variant="outline" onClick={() => { if (window.confirm("Xóa chỉ báo " + item.name + "?")) onDeleteCustomIndicator(item.id); }}><Trash2 className="h-3 w-3 mr-1" /> Xóa</Button>
+                  <Button size="sm" variant="outline" onClick={() => beginEditCustom(item)}><Pencil className="h-3 w-3 mr-1" /> Sửa</Button>
+                  <Button size="sm" variant="outline" onClick={() => { if (window.confirm("Xóa chỉ báo " + item.name + "?")) onDeleteCustomIndicator(item.id); }}><Trash2 className="h-3 w-3 mr-1" /> Xóa</Button>
                 </div>
               </div>
             ))}
