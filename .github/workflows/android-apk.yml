@@ -61,7 +61,7 @@ jobs:
           grep -q "BAR-BASED replay" src/pages/trading/useReplayPlayback.ts
           grep -q 'key: "indicators"' src/pages/trading/BottomPanel.tsx
           grep -q 'tab === "indicators"' src/pages/trading/BottomPanel.tsx
-          grep -q 'onIndicatorParamChange={updateIndicatorParam}' src/pages/TradingPage.tsx
+          grep -q 'onToggleIndicator={toggleIndicator}' src/pages/TradingPage.tsx
 
       - name: Set up Java
         uses: actions/setup-java@v4
