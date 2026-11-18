@@ -63,6 +63,8 @@ jobs:
           # are actually included in the APK instead of being silently discarded.
           cp -a /tmp/viewchart-overrides/. ./
           grep -q "BAR-BASED replay" src/pages/trading/useReplayPlayback.ts
+          grep -q 'key: "data-sources"' src/pages/trading/BottomPanel.tsx
+          grep -q 'tab === "data-sources"' src/pages/trading/BottomPanel.tsx
           grep -q 'key: "indicators"' src/pages/trading/BottomPanel.tsx
           grep -q 'tab === "indicators"' src/pages/trading/BottomPanel.tsx
           grep -q 'onToggleIndicator={toggleIndicator}' src/pages/TradingPage.tsx
