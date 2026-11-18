@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useTradingStore } from "../../services/store.tsx";
 import { useReplaySession } from "../../services/queries.ts";
 import { api } from "../../services/api.ts";
+import { TF_INTERVAL_MS, type Timeframe } from "./constants.ts";
 
 /** How often to push replayCursorTimestamp to the Zustand store (ms). */
 const STORE_SYNC_MS = 100;
@@ -55,7 +56,7 @@ function finishReplay(accountId: string, sessionDate: string | null, endMs: numb
  * - Detects external seeks by comparing store cursor to local cursor ref.
  * - Auto-stops and emits "stopped" when the cursor reaches the end of the buffer.
  */
-export function useReplayPlayback(accountId: string) {
+export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
   const isReplaying = useTradingStore((s) => s.isReplaying);
   const replayPaused = useTradingStore((s) => s.replayPaused);
   const replaySpeed = useTradingStore((s) => s.replaySpeed);
@@ -73,6 +74,7 @@ export function useReplayPlayback(accountId: string) {
   const speedRef = useRef(replaySpeed);
   const sessionDateRef = useRef(replaySessionDate);
   const tickBufferRef = useRef<TickBar[]>([]);
+  const playbackBarsRef = useRef<TickBar[]>([]);
   const cursorIndexRef = useRef(0);
   const stepAccumulatorRef = useRef(0);
   const localCursorMsRef = useRef<number | null>(null);
@@ -105,6 +107,15 @@ export function useReplayPlayback(accountId: string) {
   useEffect(() => {
     if (sessionData?.tickBuffer) {
       tickBufferRef.current = sessionData.tickBuffer;
+      const interval = TF_INTERVAL_MS[timeframe] ?? 60_000;
+      const grouped = new Map<number, TickBar>();
+      for (const bar of sessionData.tickBuffer) {
+        const bucket = Math.floor(bar.t / interval) * interval;
+        const prev = grouped.get(bucket);
+        if (!prev) grouped.set(bucket, { ...bar, t: bucket });
+        else grouped.set(bucket, { t: bucket, o: prev.o, h: Math.max(prev.h, bar.h), l: Math.min(prev.l, bar.l), c: bar.c, v: prev.v + bar.v });
+      }
+      playbackBarsRef.current = [...grouped.values()];
       cursorIndexRef.current = 0;
       stepAccumulatorRef.current = 0;
     }
@@ -118,7 +129,7 @@ export function useReplayPlayback(accountId: string) {
     if (local == null || Math.abs(replayCursorTimestamp - local) > 1000) {
       localCursorMsRef.current = replayCursorTimestamp;
       // Recompute tick index after seek
-      const buf = tickBufferRef.current;
+      const buf = playbackBarsRef.current;
       let idx = 0;
       while (idx < buf.length && (buf[idx]?.t ?? Infinity) <= replayCursorTimestamp) idx++;
       cursorIndexRef.current = Math.max(0, idx - 1);
@@ -153,7 +164,7 @@ export function useReplayPlayback(accountId: string) {
       // market-time seconds. A 1m candle therefore advances once per second.
       const realDeltaMs = Math.min(now - lastFrameTimeRef.current, 100);
       lastFrameTimeRef.current = now;
-      const buf = tickBufferRef.current;
+      const buf = playbackBarsRef.current;
       if (buf.length === 0) return true;
 
       const lastIndex = buf.length - 1;
@@ -194,7 +205,7 @@ export function useReplayPlayback(accountId: string) {
         rafIdRef.current = null;
       }
     };
-  }, [isReplaying, replayPaused, accountId]);
+  }, [isReplaying, replayPaused, accountId, timeframe]);
 
   // Cleanup on unmount
   useEffect(() => {
