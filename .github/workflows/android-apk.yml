@@ -80,7 +80,11 @@ jobs:
           EOF
           npx cap add android
 
-      - name: Build web app
+      - name: Build web app (Binance live market data + paper trading)
+        env:
+          VITE_ADAPTER: binance
+          VITE_CSP_EXTRA_CONNECT: "https://api.binance.com https://stream.binance.com:9443"
+          VITE_CSP_ALLOW_TRADINGVIEW: "1"
         run: |
           npm run typecheck
           npm run build
