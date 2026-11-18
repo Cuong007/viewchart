@@ -25,6 +25,7 @@ function BinanceDOMPanel({ symbol }: { symbol: string }) {
   const pair = symbol.replace(/USD$/, "USDT").toLowerCase();
   const [book, setBook] = useState<BinanceDepth | null>(null);
   const [connected, setConnected] = useState(false);
+  const [snapshotAt, setSnapshotAt] = useState<number | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -36,7 +37,10 @@ function BinanceDOMPanel({ symbol }: { symbol: string }) {
         const response = await fetch(endpoint);
         if (!response.ok) throw new Error("Depth snapshot unavailable");
         const data = await response.json() as BinanceDepth;
-        if (active) setBook(data);
+        if (active) {
+          setBook(data);
+          setSnapshotAt(Date.now());
+        }
       } catch {
         if (active) setConnected(false);
       }
@@ -99,10 +103,13 @@ function BinanceDOMPanel({ symbol }: { symbol: string }) {
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-border bg-secondary px-3 py-2">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Depth of Market · Binance</h3>
-        <span className={connected ? "text-xs text-buy" : "text-xs text-muted-foreground"}>{connected ? "LIVE" : "Đang kết nối"}</span>
+        <span className={connected ? "text-xs text-buy" : book ? "text-xs text-amber-500" : "text-xs text-muted-foreground"}>
+          {connected ? "LIVE · WS" : book ? "REST · Dự phòng" : "OFFLINE"}
+        </span>
       </div>
       <div className="flex items-center justify-between px-3 py-1 text-[10px] text-muted-foreground">
-        <span>{symbol.replace(/USD$/, "/USDT")}</span><span>{book ? "Top 20 levels" : "Đang tải order book…"}</span>
+        <span>{symbol.replace(/USD$/, "/USDT")}</span>
+        <span>{book ? "Top 20 levels" + (snapshotAt ? " · " + new Date(snapshotAt).toLocaleTimeString() : "") : "Đang tải order book…"}</span>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         <table className="w-full text-[11px]">
