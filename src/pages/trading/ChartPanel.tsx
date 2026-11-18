@@ -1125,6 +1125,8 @@ export function ChartPanel({
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const [fvgRawCandles, setFvgRawCandles] = useState<Candle[]>([]);
+  const fvgApiRef = useRef<{ update: (candles: unknown[], raw: unknown[], tf: string) => void; destroy?: () => void } | null>(null);
 
   // Scroll-triggered historical extension — older bars prepended as the user
   // scrolls left past what the initial deep-fetch already loaded.
@@ -1424,9 +1426,78 @@ export function ChartPanel({
     [onAddDrawing, pipDigits, timeframe, selectedSymbol],
   );
 
+
   useIndicators(chartRef, candleSeriesRef, chartData, activeIndicators, isDark, indicatorParams ?? {} as Record<IndicatorType, Record<string, number>>, indicatorCodeOverrides, customIndicators);
 
-  // ── Replay trade event markers ─────────────────────────────
+  const fvgDefinition = customIndicators?.find(
+    (item) => item.enabled === true && /\\bFVGIndicator\\b/.test(item.code),
+  );
+  useEffect(() => {
+    const chart = chartRef.current;
+    const series = candleSeriesRef.current;
+    const container = containerRef.current;
+    if (!fvgDefinition || !chart || !series || !container) return;
+    try {
+      const source = fvgDefinition.code
+        .replace("canvas: null, ctx: null,", "canvas: null, ctx: null, raf: 0,")
+        .replace("root.requestAnimationFrame(loop);", "S.raf = root.requestAnimationFrame(loop);")
+        .replace(
+          "const api = { init, update, setConfig, config: CFG, _compute: compute, _render: render, _S: S };",
+          "function destroy() { if (S.raf) root.cancelAnimationFrame(S.raf); if (S.canvas && S.canvas.parentNode) S.canvas.parentNode.removeChild(S.canvas); S.canvas = null; S.ctx = null; S.chart = null; S.series = null; S.container = null; }\\n  const api = { init, update, setConfig, destroy, config: CFG, _compute: compute, _render: render, _S: S };",
+        );
+      new Function("window", "globalThis", "document", source)(window, window, document);
+      const api = (window as Window & { FVGIndicator?: {
+        init: (opts: { chart: IChartApi; series: ISeriesApi<"Candlestick">; container: HTMLDivElement; rightOffset?: number }) => void;
+        update: (candles: unknown[], raw: unknown[], tf: string) => void;
+        destroy?: () => void;
+      } }).FVGIndicator;
+      if (!api) throw new Error("Không khởi tạo được FVGIndicator");
+      api.init({ chart, series, container, rightOffset: 12 });
+      fvgApiRef.current = api;
+      return () => {
+        api.destroy?.();
+        fvgApiRef.current = null;
+      };
+    } catch (error) {
+      console.error("[OpenCharts] Không thể khởi tạo FVG:", error);
+    }
+  }, [fvgDefinition?.id, fvgDefinition?.code, chartEpoch]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (timeframe === "1m") {
+      setFvgRawCandles(allCandles);
+      return;
+    }
+    if (chartData.length === 0) {
+      setFvgRawCandles([]);
+      return;
+    }
+    const fromMs = (chartData[0]!.time as number) * 1000;
+    const intervalMs = TF_INTERVAL_MS[timeframe] ?? 60_000;
+    const toMs = ((chartData[chartData.length - 1]!.time as number) * 1000) + intervalMs;
+    api.getCandles(selectedSymbol, "1m", 20_000, { fromMs, toMs })
+      .then((rows) => { if (!cancelled) setFvgRawCandles(rows); })
+      .catch((error) => {
+        console.error("[OpenCharts] Không tải được nến 1m cho FVG:", error);
+        if (!cancelled) setFvgRawCandles([]);
+      });
+    return () => { cancelled = true; };
+  }, [selectedSymbol, timeframe, chartData, allCandles]);
+
+  useEffect(() => {
+    if (!fvgApiRef.current || chartData.length === 0) return;
+    const rawRows = fvgRawCandles.map((c) => ({
+      time: candleTimeSec(c),
+      open: Number(c.open), high: Number(c.high), low: Number(c.low), close: Number(c.close),
+    })).filter((c) => Number.isFinite(c.time) && c.time > 0);
+    const displayed = chartData.map((c) => ({
+      time: c.time as number, open: c.open, high: c.high, low: c.low, close: c.close,
+    }));
+    fvgApiRef.current.update(displayed, rawRows, timeframe);
+  }, [chartData, fvgRawCandles, timeframe, fvgDefinition?.id]);
+
+  // ── Replay trade event markers
   useEffect(() => {
     const series = candleSeriesRef.current;
     if (!series) return;
@@ -2119,7 +2190,7 @@ export function ChartPanel({
       />
 
       {/* Chart container — cursor is managed imperatively by DrawingToolsManager */}
-      <div ref={containerRef} className="w-full h-full" onContextMenu={handleChartContextMenu} />
+      <div ref={containerRef} className="relative w-full h-full" onContextMenu={handleChartContextMenu} />
 
       {/* Left vertical tool rail (TradingView-style grouped flyouts) */}
       <DrawingToolRail drawingTool={drawingTool} onDrawingTool={(t) => onDrawingToolSelect?.(t)} />
