@@ -26,6 +26,11 @@ jobs:
           mkdir -p /tmp/viewchart-workflows /tmp/viewchart-overrides
           cp .github/workflows/android-apk.yml /tmp/viewchart-workflows/android-apk.yml
           for path in \
+            src/Root.tsx \
+            src/adapterChoice.ts \
+            src/adapter/provider.tsx \
+            src/components/AdapterMarketDataBridge.tsx \
+            examples/dnse-adapter/dnse-adapter.ts \
             src/pages/TradingPage.tsx \
             src/pages/trading/BottomPanel.tsx \
             src/pages/trading/ChartPanel.tsx \
@@ -63,6 +68,9 @@ jobs:
           # are actually included in the APK instead of being silently discarded.
           cp -a /tmp/viewchart-overrides/. ./
           grep -q "BAR-BASED replay" src/pages/trading/useReplayPlayback.ts
+          grep -q 'createDnsePaperAdapter' src/Root.tsx
+          grep -q 'decodeDnseOhlc' examples/dnse-adapter/dnse-adapter.ts
+          grep -q 'AdapterMarketDataBridge' src/adapter/provider.tsx
           grep -q 'key: "data-sources"' src/pages/trading/BottomPanel.tsx
           grep -q 'tab === "data-sources"' src/pages/trading/BottomPanel.tsx
           grep -q 'key: "indicators"' src/pages/trading/BottomPanel.tsx
@@ -94,6 +102,7 @@ jobs:
           npm ci
           npm install @capacitor/core @capacitor/android
           npm install --save-dev @capacitor/cli
+          npm install mqtt --save
           npm pkg set name="viewchart-android"
           npm pkg set scripts.android:sync="cap sync android"
           npm pkg set scripts.android:open="cap open android"
@@ -119,8 +128,8 @@ jobs:
 
       - name: Build web app (Binance live market data + paper trading)
         env:
-          VITE_ADAPTER: binance
-          VITE_CSP_EXTRA_CONNECT: "https://api.binance.com https://data-api.binance.vision https://stream.binance.com:9443 wss://stream.binance.com:9443"
+          VITE_ADAPTER: dnse
+          VITE_CSP_EXTRA_CONNECT: "https://api.binance.com https://data-api.binance.vision https://stream.binance.com:9443 wss://stream.binance.com:9443 wss://datafeed-krx.dnse.com.vn"
           VITE_CSP_ALLOW_TRADINGVIEW: "1"
         run: |
           npm run typecheck
