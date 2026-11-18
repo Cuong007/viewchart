@@ -130,8 +130,28 @@ export function BottomPanel({
   };
   const saveCode = () => {
     if (!editorCode.trim()) { toast.warning("Thiếu mã", "Hãy nhập code chỉ báo trước khi lưu."); return; }
-    try { new Function("candles", "params", "return (" + editorCode + ");"); }
-    catch (error) { toast.error("Code không hợp lệ", error instanceof Error ? error.message : "Lỗi cú pháp"); return; }
+    // Hỗ trợ hai dạng code:
+    // 1) Biểu thức hàm tính toán: (candles, params) => [{ time, value }]
+    // 2) Module overlay tự khởi tạo API, ví dụ file FVGIndicator.js (IIFE/script).
+    // Không được bọc dạng script trong "return (...)" vì dấu ; cuối file sẽ
+    // khiến parser báo lỗi dù file JavaScript hoàn toàn hợp lệ.
+    let valid = false;
+    let expressionError: unknown = null;
+    try {
+      new Function("candles", "params", "return (" + editorCode + "\\n);");
+      valid = true;
+    } catch (error) {
+      expressionError = error;
+      try {
+        new Function(editorCode);
+        valid = true;
+      } catch (scriptError) {
+        const message = scriptError instanceof Error ? scriptError.message
+          : expressionError instanceof Error ? expressionError.message : "Lỗi cú pháp JavaScript";
+        toast.error("Code không hợp lệ", message);
+        return;
+      }
+    }
     if (editingIndicator) onSaveIndicatorCode(editingIndicator, editorCode);
     else if (editingCustomId) {
       onDeleteCustomIndicator(editingCustomId);
@@ -426,7 +446,7 @@ export function BottomPanel({
             <textarea value={editorCode} onChange={(e) => setEditorCode(e.target.value)}
               placeholder="// Viết code chỉ báo tại đây. Ví dụ: (candles, params) => [{ time, value }]"
               spellCheck={false} className="flex-1 min-h-[150px] w-full resize-y rounded border border-border bg-background p-3 font-mono text-xs text-foreground outline-none focus:ring-1 focus:ring-primary" />
-            <div className="text-[10px] text-muted-foreground">Code phải trả về mảng { "{ time, value }" }. candles gồm time, open, high, low, close, volume. Chỉ chạy code do bạn tin cậy; code được thực thi trong ứng dụng.</div>
+            <div className="text-[10px] text-muted-foreground">Hỗ trợ 2 dạng: hàm trả về mảng { "{ time, value }" } (candles gồm time, open, high, low, close, volume), hoặc module overlay JavaScript tự cung cấp API như FVGIndicator.init()/update(). Chỉ chạy code do bạn tin cậy; code được thực thi trong ứng dụng.</div>
             <div className="flex justify-end gap-2">
               <Button size="sm" variant="outline" onClick={() => onTabChange("indicators")}>Hủy</Button>
               <Button size="sm" onClick={saveCode}>Lưu code</Button>
