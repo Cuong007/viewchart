@@ -1436,16 +1436,7 @@ export function ChartPanel({
     const chart = chartRef.current;
     const series = candleSeriesRef.current;
     const container = containerRef.current;
-    if (!fvgDefinition || !chart || !series || !container) {
-      fvgApiRef.current = null;
-      return;
-    }
-    // Some user-supplied FVG scripts do not expose destroy(). Track every
-    // canvas they add so disabling the indicator or changing symbol can
-    // still remove its visual layer from the shared chart container.
-    const canvasesBefore = new Set(Array.from(container.querySelectorAll("canvas")));
-    let ownedCanvases: HTMLCanvasElement[] = [];
-    let activeApi: { destroy?: () => void } | null = null;
+    if (!fvgDefinition || !chart || !series || !container) return;
     try {
       const source = fvgDefinition.code
         .replace("canvas: null, ctx: null,", "canvas: null, ctx: null, raf: 0,")
@@ -1461,29 +1452,18 @@ export function ChartPanel({
         destroy?: () => void;
       } }).FVGIndicator;
       if (!api) throw new Error("Không khởi tạo được FVGIndicator");
-      activeApi = api;
       api.init({ chart, series, container, rightOffset: 12 });
-      ownedCanvases = Array.from(container.querySelectorAll("canvas")).filter((node) => !canvasesBefore.has(node));
       // The supplied script disables ordinary FVG by default; enable it here.
       (api as typeof api & { setConfig?: (patch: Record<string, unknown>) => void }).setConfig?.({ mothuong: true });
       fvgApiRef.current = api;
       return () => {
-        try { activeApi?.destroy?.(); } catch (error) {
-          console.warn("[OpenCharts] FVG destroy failed; removing owned canvas:", error);
-        }
-        for (const canvas of ownedCanvases) {
-          if (canvas.isConnected) canvas.remove();
-        }
-        if (fvgApiRef.current === api) fvgApiRef.current = null;
+        api.destroy?.();
+        fvgApiRef.current = null;
       };
     } catch (error) {
-      for (const canvas of Array.from(container.querySelectorAll("canvas"))) {
-        if (!canvasesBefore.has(canvas)) canvas.remove();
-      }
-      fvgApiRef.current = null;
       console.error("[OpenCharts] Không thể khởi tạo FVG:", error);
     }
-  }, [fvgDefinition?.id, fvgDefinition?.code, selectedSymbol, chartEpoch]);
+  }, [fvgDefinition?.id, fvgDefinition?.code, chartEpoch]);
 
   useEffect(() => {
     let cancelled = false;
