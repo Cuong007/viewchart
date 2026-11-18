@@ -38,7 +38,7 @@ import { CrosshairHighlightPrimitive } from "../../lib/chart-plugins/highlight-b
 import { SessionBreaks } from "../../lib/chart-plugins/session-breaks/session-breaks.ts";
 import { SessionHighlighting } from "../../lib/chart-plugins/session-highlighting/session-highlighting.ts";
 import { TooltipPrimitive } from "../../lib/chart-plugins/tooltip/tooltip.ts";
-import type { IndicatorType } from "../../lib/indicators.ts";
+import type { CustomIndicatorDefinition, IndicatorType } from "../../lib/indicators.ts";
 import { cn } from "../../lib/utils.ts";
 import { api } from "../../services/api.ts";
 import { queryKeys } from "../../services/queries.ts";
