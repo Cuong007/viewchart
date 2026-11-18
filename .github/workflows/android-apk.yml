@@ -29,7 +29,7 @@ jobs:
       - name: Import OpenCharts source
         run: |
           git clone --depth 1 https://github.com/dylanpersonguy/OpenCharts.git /tmp/opencharts
-          rsync -a --delete --exclude='.git' --exclude='.github/workflows/android-apk.yml' /tmp/opencharts/ ./
+          rsync -a --delete --exclude='.git' --exclude='.github/workflows/**' /tmp/opencharts/ ./
           mkdir -p .github/workflows
           cp /tmp/viewchart-workflows/android-apk.yml .github/workflows/android-apk.yml
 
