@@ -91,7 +91,8 @@ export function useReplayChartData(accountId: string | null, timeframe: Timefram
   useEffect(() => {
     if (!isReplaying) clearReplayPrices();
     return () => {
-      if (!isReplaying) clearReplayPrices();
+      // Always release ownership on unmount or replay-state transition.
+      clearReplayPrices();
     };
   }, [isReplaying]);
 
