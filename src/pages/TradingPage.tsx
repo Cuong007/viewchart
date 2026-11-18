@@ -316,7 +316,7 @@ export function TradingPage() {
             )}
             {rightPanel === "news" && (
               <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                <MarketNewsFeed symbol={selectedSymbol} />
+                <MarketNewsFeed symbol={selectedSymbol} theme={isDark ? "dark" : "light"} />
               </div>
             )}
             {rightPanel === "tv-analysis" && (
@@ -379,7 +379,7 @@ export function TradingPage() {
                   isFeedConnected={isFeedConnected}
                 />
               )}
-              {rightPanel === "news" && <div className="space-y-2 p-2"><MarketNewsFeed symbol={selectedSymbol} /></div>}
+              {rightPanel === "news" && <div className="space-y-2 p-2"><MarketNewsFeed symbol={selectedSymbol} theme={isDark ? "dark" : "light"} /></div>}
               {rightPanel === "tv-analysis" && (
                 <TradingViewTechnicalAnalysis symbol={selectedSymbol} theme={isDark ? "dark" : "light"} interval={timeframe} width="100%" height="100%" />
               )}
