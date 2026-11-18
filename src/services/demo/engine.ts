@@ -406,6 +406,8 @@ export type PlaceOrderArgs = {
   stopPrice?: number;
   takeProfit?: number;
   stopLoss?: number;
+  /** Historical execution price supplied by Bar Replay; absent for live trading. */
+  executionPrice?: number;
 };
 
 export type OrderModifications = {
@@ -481,7 +483,9 @@ export function placeOrder(input: PlaceOrderArgs): Order {
   }
   const orderType = type as "MARKET" | "LIMIT" | "STOP";
 
-  const market = requireMarketPrice(symbol.name);
+  const market = input.executionPrice != null
+    ? requirePrice(input.executionPrice, "Replay execution price")
+    : requireMarketPrice(symbol.name);
 
   let limitPrice: number | null = null;
   let stopPrice: number | null = null;
