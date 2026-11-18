@@ -209,7 +209,8 @@ export interface ChartPanelProps {
   selectedSymbol: string;
   timeframe: Timeframe;
   isDark: boolean;
-  activeIndicators: IndicatorType[];\n  indicatorParams?: Record<string, Record<string, number>>;
+  activeIndicators: IndicatorType[];
+  indicatorParams?: Record<string, Record<string, number>>;
   drawingTool: DrawingTool;
   drawings: DrawingLine[];
   onAddDrawing: (d: DrawingLine) => void;
