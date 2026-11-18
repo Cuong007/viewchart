@@ -503,7 +503,7 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
 
     activeAccountId,
     account,
-    positions,
+    positions: displayPositions,
     orders,
     positionPnl,
     chartPositions,
