@@ -22,6 +22,7 @@ export function useIndicators(
   chartData: CandlestickData<Time>[],
   activeIndicators: IndicatorType[],
   isDark: boolean,
+  indicatorParams: Record<string, Record<string, number>> = {},
 ): void {
   const indicatorSeriesRef = useRef<Map<string, ISeriesApi<"Line"> | ISeriesApi<"Histogram">>>(
     new Map(),
@@ -97,9 +98,9 @@ export function useIndicators(
         case "MACD": {
           const data = macd(
             indCandles,
-            config.defaultParams.fast,
-            config.defaultParams.slow,
-            config.defaultParams.signal,
+            indicatorParams[type]?.fast ?? config.defaultParams.fast,
+            indicatorParams[type]?.slow ?? config.defaultParams.slow,
+            indicatorParams[type]?.signal ?? config.defaultParams.signal,
           );
           const mLine = chart.addLineSeries({
             color: "#2196f3",
@@ -129,8 +130,8 @@ export function useIndicators(
         case "BOLL": {
           const data = bollingerBands(
             indCandles,
-            config.defaultParams.period,
-            config.defaultParams.stdDev,
+            indicatorParams[type]?.period ?? config.defaultParams.period,
+            indicatorParams[type]?.stdDev ?? config.defaultParams.stdDev,
           );
           const upper = chart.addLineSeries({
             color: config.color + "80",
@@ -165,8 +166,8 @@ export function useIndicators(
         case "STOCH": {
           const data = stochastic(
             indCandles,
-            config.defaultParams.kPeriod,
-            config.defaultParams.dPeriod,
+            indicatorParams[type]?.kPeriod ?? config.defaultParams.kPeriod,
+            indicatorParams[type]?.dPeriod ?? config.defaultParams.dPeriod,
           );
           const kLine = chart.addLineSeries({
             color: "#ab47bc",
