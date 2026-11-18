@@ -56,7 +56,7 @@ export interface BottomPanelProps {
   indicatorCodeOverrides: Partial<Record<IndicatorType, string>>;
   customIndicators: CustomIndicatorDefinition[];
   onSaveIndicatorCode: (type: IndicatorType, code: string) => void;
-  onSaveCustomIndicator: (name: string, code: string, id?: string) => void;
+  onSaveCustomIndicator: (name: string, code: string) => void;
   onDeleteIndicator: (type: IndicatorType) => void;
   onDeleteCustomIndicator: (id: string) => void;
   onToggleCustomIndicator: (id: string) => void;
@@ -152,8 +152,10 @@ export function BottomPanel({
       }
     }
     if (editingIndicator) onSaveIndicatorCode(editingIndicator, editorCode);
-    else if (editingCustomId) onSaveCustomIndicator(editorName, editorCode, editingCustomId);
-    else if (isNewCustom) onSaveCustomIndicator(editorName, editorCode);
+    else if (editingCustomId) {
+      onDeleteCustomIndicator(editingCustomId);
+      onSaveCustomIndicator(editorName, editorCode);
+    } else if (isNewCustom) onSaveCustomIndicator(editorName, editorCode);
     setEditingIndicator(null); setEditingCustomId(null); setIsNewCustom(false);
     toast.success("Đã lưu", "Mã chỉ báo đã được lưu."); onTabChange("indicators");
   };

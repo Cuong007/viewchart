@@ -116,16 +116,11 @@ export function TradingPage() {
     }
     return next;
   };
-  const saveCustomIndicator = (name: string, code: string, existingId?: string) => {
-    const id = existingId || crypto.randomUUID();
-    const updated: CustomIndicatorDefinition = {
-      id, name: name.trim() || "Custom Indicator", code, color: "#a78bfa",
-    };
-    setCustomIndicators((prev) => persistCustomIndicators(
-      existingId
-        ? prev.map((item) => item.id === existingId ? { ...item, ...updated } : item)
-        : [...prev, { ...updated, enabled: false }],
-    ));
+  const saveCustomIndicator = (name: string, code: string) => {
+    setCustomIndicators((prev) => persistCustomIndicators([
+      ...prev,
+      { id: crypto.randomUUID(), name: name.trim() || "Custom Indicator", code, color: "#a78bfa", enabled: false },
+    ]));
   };
   const toggleCustomIndicator = (id: string) => {
     setCustomIndicators((prev) => persistCustomIndicators(
