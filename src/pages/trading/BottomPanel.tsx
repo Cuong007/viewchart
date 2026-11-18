@@ -213,7 +213,7 @@ export function BottomPanel({
 
   return (
     <div
-      className="border-t border-border flex flex-col shrink-0 bg-card max-h-[150px] md:max-h-none"
+      className="border-t border-border flex flex-col shrink-0 bg-card max-h-[38vh] md:max-h-none"
       style={{ height }}
     >
       {/* Tab bar */}
