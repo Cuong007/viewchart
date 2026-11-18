@@ -119,7 +119,7 @@ export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
       cursorIndexRef.current = 0;
       stepAccumulatorRef.current = 0;
     }
-  }, [sessionData]);
+  }, [sessionData, timeframe]);
 
   // Detect external seeks: if the store cursor diverges from our local cursor
   // by more than 1s, accept the new position and recompute the tick index.
