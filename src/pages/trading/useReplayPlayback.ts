@@ -73,6 +73,7 @@ export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
   // ── Stable refs (no re-render on change) ────────────────
   const speedRef = useRef(replaySpeed);
   const sessionDateRef = useRef(replaySessionDate);
+  const previousTimeframeRef = useRef(timeframe);
   const tickBufferRef = useRef<TickBar[]>([]);
   const playbackBarsRef = useRef<TickBar[]>([]);
   const cursorIndexRef = useRef(0);
@@ -116,7 +117,17 @@ export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
         else grouped.set(bucket, { t: bucket + interval - 60_000, o: prev.o, h: Math.max(prev.h, bar.h), l: Math.min(prev.l, bar.l), c: bar.c, v: prev.v + bar.v });
       }
       playbackBarsRef.current = [...grouped.values()];
-      cursorIndexRef.current = 0;
+      if (previousTimeframeRef.current !== timeframe) {
+        const cursor = useTradingStore.getState().replayCursorTimestamp;
+        let idx = 0;
+        while (idx < playbackBarsRef.current.length && (playbackBarsRef.current[idx]?.t ?? Infinity) <= (cursor ?? -Infinity)) idx++;
+        cursorIndexRef.current = Math.max(0, idx - 1);
+        localCursorMsRef.current = playbackBarsRef.current[cursorIndexRef.current]?.t ?? null;
+      } else {
+        cursorIndexRef.current = 0;
+        localCursorMsRef.current = null;
+      }
+      previousTimeframeRef.current = timeframe;
       stepAccumulatorRef.current = 0;
     }
   }, [sessionData, timeframe]);
