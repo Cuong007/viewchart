@@ -1453,6 +1453,8 @@ export function ChartPanel({
       } }).FVGIndicator;
       if (!api) throw new Error("Không khởi tạo được FVGIndicator");
       api.init({ chart, series, container, rightOffset: 12 });
+      // The supplied script disables ordinary FVG by default; enable it here.
+      (api as typeof api & { setConfig?: (patch: Record<string, unknown>) => void }).setConfig?.({ mothuong: true });
       fvgApiRef.current = api;
       return () => {
         api.destroy?.();
