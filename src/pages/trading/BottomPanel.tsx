@@ -29,6 +29,7 @@ import { OrdersTable } from "./OrdersTable.tsx";
 import { computeLivePnl, computeLivePrice } from "../../lib/livePnl.ts";
 import { safeStorage } from "../../lib/safe-storage.ts";
 import { isHyperliquidMode } from "../../hyperliquid/ui/mode.ts";
+import { INDICATOR_REGISTRY, type IndicatorType } from "../../lib/indicators.ts";
 
 type TradingActionError = {
   error?: { message?: string };
@@ -46,8 +47,10 @@ function getErrorMessage(error: unknown): string {
 }
 
 export interface BottomPanelProps {
-  tab: "positions" | "orders" | "history" | "journal" | "calendar" | "news";
-  onTabChange: (t: "positions" | "orders" | "history" | "journal" | "calendar" | "news") => void;
+  tab: "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators";
+  onTabChange: (t: "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators") => void;
+  activeIndicators: IndicatorType[];
+  onToggleIndicator: (type: IndicatorType) => void;
   positions: Position[];
   orders: Order[];
   accountId: string | null;
@@ -81,6 +84,8 @@ export function BottomPanel({
   onDeleteJournal,
   height = 220,
   isFeedConnected = true,
+  activeIndicators,
+  onToggleIndicator,
 }: BottomPanelProps) {
   const isDemo = useAuthStore((s) => s.isDemo);
   const cancelOrder = useCancelOrder();
@@ -205,6 +210,7 @@ export function BottomPanel({
     },
     { key: "calendar", label: "Calendar", icon: Globe },
     { key: "news", label: "News", icon: Newspaper },
+    { key: "indicators", label: "Indicators", icon: TrendingUp },
   ];
   // The calendar and news tabs are sample data; a live broker must not show it.
   const visibleTabs = isHyperliquidMode()
@@ -230,7 +236,7 @@ export function BottomPanel({
             )}
           >
             <t.icon className="h-3 w-3" />
-            <span className="hidden md:inline">{t.label}</span>
+            <span>{t.label}</span>
             {t.count !== undefined && t.count > 0 && (
               <span className="bg-primary text-primary-foreground rounded-full px-1.5 text-[9px]">
                 {t.count}
@@ -313,6 +319,23 @@ export function BottomPanel({
         )}
         {tab === "calendar" && <EconomicCalendar />}
         {tab === "news" && <NewsFeed />}
+        {tab === "indicators" && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3">
+            {INDICATOR_REGISTRY.map((indicator) => {
+              const enabled = activeIndicators.includes(indicator.type);
+              return (
+                <label key={indicator.type} className="flex items-center gap-3 rounded-lg border border-border p-3 text-xs cursor-pointer hover:bg-secondary/50">
+                  <input type="checkbox" checked={enabled} onChange={() => onToggleIndicator(indicator.type)} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-medium">{indicator.label}</span>
+                    <span className="text-muted-foreground">{indicator.type} · {indicator.pane === "overlay" ? "Overlay" : "Separate pane"}</span>
+                  </span>
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: indicator.color }} />
+                </label>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
