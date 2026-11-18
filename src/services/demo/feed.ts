@@ -1,7 +1,7 @@
 import { DEMO_CHANNELS, publish } from "./bus.ts";
 import { getTickPrices, primeTickPrices } from "./candles.ts";
 import { mark } from "./engine.ts";
-import { DEMO_SYMBOLS } from "./instruments.ts";
+import { DEMO_FEED_SYMBOLS } from "./instruments.ts";
 
 /**
  * Demo market-data feed. Replays the bundled REAL 1m closes for every symbol
@@ -31,7 +31,7 @@ let timer: ReturnType<typeof setInterval> | null = null;
 let cursors: SymbolCursor[] = [];
 
 function buildCursors(): SymbolCursor[] {
-  return DEMO_SYMBOLS.map((s) => {
+  return DEMO_FEED_SYMBOLS.map((s) => {
     const prices = getTickPrices(s.name);
     const seed = prices[prices.length - 1] ?? 0;
     return {
@@ -77,7 +77,7 @@ export function startDemoFeed(): void {
   if (timer || starting) return;
   starting = true;
   // The 1m series are loaded on demand, so wait for them before ticking.
-  void primeTickPrices(DEMO_SYMBOLS.map((s) => s.name))
+  void primeTickPrices(DEMO_FEED_SYMBOLS.map((s) => s.name))
     .then(() => {
       starting = false;
       if (timer) return; // stopped again while loading
