@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { BookOpen, Clock, Globe, History, Newspaper, TrendingUp, Activity, Settings2, Plus, X } from "lucide-react";\nimport { INDICATOR_REGISTRY, type IndicatorType } from "../../lib/indicators.ts";
+import { BookOpen, Clock, Globe, History, Newspaper, TrendingUp, Activity, Settings2, Plus, X } from "lucide-react";
+import { INDICATOR_REGISTRY, type IndicatorType } from "../../lib/indicators.ts";
 import { useAuthStore } from "../../services/store.tsx";
 import { useTradingStore } from "../../services/store.tsx";
 import {
@@ -46,7 +47,11 @@ function getErrorMessage(error: unknown): string {
 }
 
 export interface BottomPanelProps {
-  tab: "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators";\n  activeIndicators: IndicatorType[];\n  indicatorParams: Record<string, Record<string, number>>;\n  onToggleIndicator: (type: IndicatorType) => void;\n  onIndicatorParamChange: (type: IndicatorType, key: string, value: number) => void;
+  tab: "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators";
+  activeIndicators: IndicatorType[];
+  indicatorParams: Record<string, Record<string, number>>;
+  onToggleIndicator: (type: IndicatorType) => void;
+  onIndicatorParamChange: (type: IndicatorType, key: string, value: number) => void;
   onTabChange: (t: "positions" | "orders" | "history" | "journal" | "calendar" | "news") => void;
   positions: Position[];
   orders: Order[];
@@ -204,7 +209,8 @@ export function BottomPanel({
       count: journalEntries.length,
     },
     { key: "calendar", label: "Calendar", icon: Globe },
-    { key: "news", label: "News", icon: Newspaper },\n    { key: "indicators", label: "Indicators", icon: Activity },
+    { key: "news", label: "News", icon: Newspaper },
+    { key: "indicators", label: "Indicators", icon: Activity },
   ];
   // The calendar and news tabs are sample data; a live broker must not show it.
   const visibleTabs = isHyperliquidMode()
@@ -312,7 +318,8 @@ export function BottomPanel({
           />
         )}
         {tab === "calendar" && <EconomicCalendar />}
-        {tab === "news" && <NewsFeed />}\n        {tab === "indicators" && <IndicatorsPanel active={activeIndicators} params={indicatorParams} onToggle={onToggleIndicator} onParamChange={onIndicatorParamChange} />}
+        {tab === "news" && <NewsFeed />}
+        {tab === "indicators" && <IndicatorsPanel active={activeIndicators} params={indicatorParams} onToggle={onToggleIndicator} onParamChange={onIndicatorParamChange} />}
       </div>
     </div>
   );
