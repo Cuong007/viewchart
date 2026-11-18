@@ -9,9 +9,7 @@ export function AdapterMarketDataBridge() {
       updateTick(event.symbol,event.bid,event.ask,event.timestamp??Date.now());
       // The built-in paper engine must consume the same live price stream as the chart.
       // This also enables instruments whose candles/quotes come from a host adapter.
-      if(getAdapter().name === "demo" && !useTradingStore.getState().isReplaying) {
-        mark(event.symbol, (event.bid + event.ask) / 2);
-      }
+      if(getAdapter().name === "demo") mark(event.symbol, (event.bid + event.ask) / 2);
     }
     else if(event.type==="candle"){
       updateCandle(event.symbol,event.timeframe,{open:event.open,high:event.high,low:event.low,close:event.close,volume:event.volume,timestamp:event.timestamp});

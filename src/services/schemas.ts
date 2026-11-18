@@ -202,8 +202,6 @@ export const PlaceOrderInputSchema = z.object({
   stopPrice: z.number().positive().optional(),
   takeProfit: z.number().positive().optional(),
   stopLoss: z.number().positive().optional(),
-  /** Historical cursor price used only by Bar Replay paper orders. */
-  executionPrice: z.number().positive().optional(),
 });
 export type PlaceOrderInput = z.infer<typeof PlaceOrderInputSchema>;
 

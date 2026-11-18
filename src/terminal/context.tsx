@@ -428,11 +428,7 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
   const account = useTradingStore((s) => s.accounts.find((a) => a.id === activeAccountId));
   const liveCandleUpdates = useTradingStore((s) => s.liveCandleUpdates);
   const liveCandle = liveCandleUpdates[chartKey];
-  const liveTick = ticks[selectedSymbol];
-  const replayBar = isReplaying && replayCandles?.length ? replayCandles[replayCandles.length - 1] : null;
-  const tick = replayBar
-    ? { bid: replayBar.close, ask: replayBar.close, timestamp: replayBar.time * 1000 }
-    : liveTick;
+  const tick = ticks[selectedSymbol];
   const symbolInfo = symbols.find((s) => s.name === selectedSymbol) as Symbol | undefined;
   const pipDigits = useMemo(
     () => getPipDigits(symbolInfo, selectedSymbol),

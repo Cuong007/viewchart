@@ -385,7 +385,6 @@ export function TradingPage() {
                 symbol={selectedSymbol}
                 symbolInfo={symbolInfo}
                 tick={tick}
-                isReplaying={isReplaying}
                 accountId={activeAccountId}
                 oneClick={oneClick}
                 onToggleOneClick={toggleOneClick}
