@@ -93,7 +93,7 @@ export function TradingPage() {
   // ── Layout state ──
   const [showIndicatorMenu, setShowIndicatorMenu] = useState(false);
   const [bottomTab, setBottomTab] = useState<
-    "positions" | "orders" | "history" | "journal" | "calendar" | "news"
+    "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators"
   >("positions");
   const [rightPanel, setRightPanel] = useState<
     "order" | "dom" | "watchlist" | "news" | "tv-analysis"
@@ -275,6 +275,8 @@ export function TradingPage() {
             onSelectOrderSymbol={setSelectedSymbol}
             height={bottomPanelHeight}
             isFeedConnected={isFeedConnected}
+            activeIndicators={activeIndicators}
+            onToggleIndicator={toggleIndicator}
             journalEntries={journalEntries}
             journalLoading={journalLoading}
             onCreateJournal={createJournal}
