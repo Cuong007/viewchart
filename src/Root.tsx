@@ -36,20 +36,23 @@ function Loading() {
 
 function BinanceOrDemo() {
   const wantsBinance = choice === "binance";
+  const wantsDnse = choice === "dnse";
   const [adapter, setAdapter] = useState<OpenChartsAdapter | null>(() =>
-    wantsBinance ? null : createDemoAdapter(),
+    wantsBinance || wantsDnse ? null : createDemoAdapter(),
   );
 
   useEffect(() => {
-    if (!wantsBinance) return;
-    import("../examples/binance-adapter/binance-adapter.ts")
-      .then(({ createBinancePaperAdapter }) => createBinancePaperAdapter())
+    if (!wantsBinance && !wantsDnse) return;
+    const loadAdapter = wantsDnse
+      ? import("../examples/dnse-adapter/dnse-adapter.ts").then(({ createDnsePaperAdapter }) => createDnsePaperAdapter())
+      : import("../examples/binance-adapter/binance-adapter.ts").then(({ createBinancePaperAdapter }) => createBinancePaperAdapter());
+    loadAdapter
       .then(setAdapter)
       .catch((err: unknown) => {
         console.error("[opencharts] failed to load the Binance adapter; using the demo", err);
         setAdapter(createDemoAdapter());
       });
-  }, [wantsBinance]);
+  }, [wantsBinance, wantsDnse]);
 
   if (!adapter) return null;
   return (
