@@ -40,6 +40,8 @@ jobs:
             src/lib/indicators.ts \
             src/pages/trading/useReplayPlayback.ts \
             src/pages/trading/useReplayChartData.ts \
+            src/services/replay.ts \
+            src/services/queries.ts \
             src/terminal/context.tsx \
             src/terminal/use-terminal.ts \
             src/pages/trading/ReplayHUD.tsx \
