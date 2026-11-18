@@ -30,6 +30,7 @@ jobs:
             src/pages/trading/BottomPanel.tsx \
             src/pages/trading/ChartPanel.tsx \
             src/pages/trading/useIndicators.ts \
+            src/lib/indicators.ts \
             src/pages/trading/useReplayPlayback.ts \
             src/pages/trading/useReplayChartData.ts \
             src/terminal/context.tsx \
@@ -67,6 +68,9 @@ jobs:
           grep -q 'onToggleIndicator={toggleIndicator}' src/pages/TradingPage.tsx
           grep -q 'indicatorParams={indicatorParams}' src/pages/TradingPage.tsx
           grep -q 'aggregateToTimeframe' src/pages/trading/useReplayChartData.ts
+          grep -q 'CustomIndicatorDefinition' src/lib/indicators.ts
+          grep -q 'onSaveCustomIndicator' src/pages/trading/BottomPanel.tsx
+          grep -q 'indicatorCodeOverrides' src/pages/trading/useIndicators.ts
           grep -q 'playbackBarsRef' src/pages/trading/useReplayPlayback.ts
 
       - name: Set up Java
