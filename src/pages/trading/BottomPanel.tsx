@@ -135,16 +135,13 @@ export function BottomPanel({
     // 2) Module overlay tự khởi tạo API, ví dụ file FVGIndicator.js (IIFE/script).
     // Không được bọc dạng script trong "return (...)" vì dấu ; cuối file sẽ
     // khiến parser báo lỗi dù file JavaScript hoàn toàn hợp lệ.
-    let valid = false;
     let expressionError: unknown = null;
     try {
       new Function("candles", "params", "return (" + editorCode + "\\n);");
-      valid = true;
     } catch (error) {
       expressionError = error;
       try {
         new Function(editorCode);
-        valid = true;
       } catch (scriptError) {
         const message = scriptError instanceof Error ? scriptError.message
           : expressionError instanceof Error ? expressionError.message : "Lỗi cú pháp JavaScript";
