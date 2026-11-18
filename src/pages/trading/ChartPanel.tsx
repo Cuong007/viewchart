@@ -144,7 +144,12 @@ function fetchOlderRange(
   state: LoadMoreState,
   onLoaded: (bars: Candle[]) => void,
 ): void {
-  const windowMs = LOAD_MORE_WINDOW * (TF_INTERVAL_MS[timeframe as Timeframe] ?? 60_000);
+  // Match the proven VN30-PRO-ANDROID history strategy: request a 30-day
+  // block when scrolling back on the 1-minute VN30F1M chart. Other markets
+  // retain the normal 500-bar window.
+  const windowBars =
+    symbol === "VN30F1M" && timeframe === "1m" ? 30 * 24 * 60 : LOAD_MORE_WINDOW;
+  const windowMs = windowBars * (TF_INTERVAL_MS[timeframe as Timeframe] ?? 60_000);
   api
     .getCandles(symbol, timeframe, undefined, { fromMs: toMs - windowMs, toMs })
     .then((bars) => {
