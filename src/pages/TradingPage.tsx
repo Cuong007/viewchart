@@ -95,7 +95,7 @@ export function TradingPage() {
   // ── Layout state ──
   const [showIndicatorMenu, setShowIndicatorMenu] = useState(false);
   const [bottomTab, setBottomTab] = useState<
-    "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators" | "indicator-code"
+    "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators" | "indicator-code" | "data-sources"
   >("positions");
   const [indicatorCodeOverrides, setIndicatorCodeOverrides] = useState<Partial<Record<IndicatorType, string>>>(() => {
     try { return JSON.parse(safeStorage.getItem("opencharts_indicator_code") || "{}"); } catch { return {}; }
