@@ -3,14 +3,8 @@ import { useTradingStore } from "../../services/store.tsx";
 import { useReplaySession } from "../../services/queries.ts";
 import { api } from "../../services/api.ts";
 
-/**
- * Maximum candles advanced per rAF frame when catching up (e.g. after seek).
- * Prevents blocking the main thread on high-speed or large-jump scenarios.
- */
-const MAX_TICKS_PER_FRAME = 10;
-
 /** How often to push replayCursorTimestamp to the Zustand store (ms). */
-const STORE_SYNC_MS = 250;
+const STORE_SYNC_MS = 100;
 
 /** How often to PATCH the server with the current cursor position (ms). */
 const SERVER_SYNC_MS = 2000;
@@ -18,19 +12,6 @@ const SERVER_SYNC_MS = 2000;
 type TickBar = { t: number; o: number; h: number; l: number; c: number; v: number };
 
 type MutableRef<T> = { current: T };
-
-/** Advance the tick index up to the cursor, chunked to MAX_TICKS_PER_FRAME. */
-function advanceTickIndex(buf: TickBar[], idxRef: MutableRef<number>, cursorMs: number): void {
-  let chunk = 0;
-  while (
-    idxRef.current < buf.length &&
-    (buf[idxRef.current]?.t ?? Infinity) <= cursorMs &&
-    chunk < MAX_TICKS_PER_FRAME
-  ) {
-    idxRef.current++;
-    chunk++;
-  }
-}
 
 /** Throttled store write (drives scrubber + HUD timestamp). */
 function syncCursorToStore(now: number, lastSyncRef: MutableRef<number>, cursorMs: number): void {
@@ -69,10 +50,8 @@ function finishReplay(accountId: string, sessionDate: string | null, endMs: numb
 /**
  * Drives the client-side replay clock using requestAnimationFrame.
  *
- * - Advances replayCursorTimestamp at replaySpeed × real time.
- * - Throttles Zustand writes to STORE_SYNC_MS to avoid per-frame re-renders.
- * - Debounces server PATCH to SERVER_SYNC_MS for cursor persistence.
- * - Advances up to MAX_TICKS_PER_FRAME tick indices per frame (chunked).
+ * - Advances one candle per second at 1x; speed controls candles per second.
+ * - Throttles Zustand writes and debounces server cursor persistence.
  * - Detects external seeks by comparing store cursor to local cursor ref.
  * - Auto-stops and emits "stopped" when the cursor reaches the end of the buffer.
  */
@@ -94,7 +73,8 @@ export function useReplayPlayback(accountId: string) {
   const speedRef = useRef(replaySpeed);
   const sessionDateRef = useRef(replaySessionDate);
   const tickBufferRef = useRef<TickBar[]>([]);
-  const nextTickIdxRef = useRef(0);
+  const cursorIndexRef = useRef(0);
+  const stepAccumulatorRef = useRef(0);
   const localCursorMsRef = useRef<number | null>(null);
   const lastFrameTimeRef = useRef<number | null>(null);
   const lastStoreSyncRef = useRef(0);
@@ -116,7 +96,8 @@ export function useReplayPlayback(accountId: string) {
   useEffect(() => {
     if (isReplaying) {
       localCursorMsRef.current = null;
-      nextTickIdxRef.current = 0;
+      cursorIndexRef.current = 0;
+      stepAccumulatorRef.current = 0;
     }
   }, [isReplaying]);
 
@@ -124,6 +105,8 @@ export function useReplayPlayback(accountId: string) {
   useEffect(() => {
     if (sessionData?.tickBuffer) {
       tickBufferRef.current = sessionData.tickBuffer;
+      cursorIndexRef.current = 0;
+      stepAccumulatorRef.current = 0;
     }
   }, [sessionData]);
 
@@ -138,7 +121,8 @@ export function useReplayPlayback(accountId: string) {
       const buf = tickBufferRef.current;
       let idx = 0;
       while (idx < buf.length && (buf[idx]?.t ?? Infinity) <= replayCursorTimestamp) idx++;
-      nextTickIdxRef.current = idx;
+      cursorIndexRef.current = Math.max(0, idx - 1);
+      stepAccumulatorRef.current = 0;
     }
   }, [replayCursorTimestamp]);
 
@@ -165,28 +149,32 @@ export function useReplayPlayback(accountId: string) {
         return true;
       }
 
-      // Cap real delta to 100ms to handle tab-switch gaps gracefully
+      // BAR-BASED replay: speed means candles per second, not elapsed
+      // market-time seconds. A 1m candle therefore advances once per second.
       const realDeltaMs = Math.min(now - lastFrameTimeRef.current, 100);
       lastFrameTimeRef.current = now;
-      const replayDeltaMs = realDeltaMs * speedRef.current;
-
       const buf = tickBufferRef.current;
-      if (buf.length === 0) return true; // session data still loading
+      if (buf.length === 0) return true;
 
-      const endMs = buf[buf.length - 1]!.t;
-      // Initialise cursor to buffer start on the first frame of a session
-      const prevCursorMs = localCursorMsRef.current ?? buf[0]!.t;
-      const newCursorMs = Math.min(prevCursorMs + replayDeltaMs, endMs);
+      const lastIndex = buf.length - 1;
+      if (localCursorMsRef.current == null) {
+        cursorIndexRef.current = Math.max(0, cursorIndexRef.current);
+        localCursorMsRef.current = buf[cursorIndexRef.current]?.t ?? buf[0]!.t;
+      }
+      stepAccumulatorRef.current += (realDeltaMs / 1000) * Math.max(0.1, speedRef.current);
+      const steps = Math.floor(stepAccumulatorRef.current);
+      if (steps > 0) {
+        cursorIndexRef.current = Math.min(lastIndex, cursorIndexRef.current + steps);
+        stepAccumulatorRef.current -= steps;
+      }
+      const newCursorMs = buf[cursorIndexRef.current]!.t;
       localCursorMsRef.current = newCursorMs;
-
-      advanceTickIndex(buf, nextTickIdxRef, newCursorMs);
       syncCursorToStore(now, lastStoreSyncRef, newCursorMs);
       syncCursorToServer(now, lastServerSyncRef, accountId, sessionDateRef.current, newCursorMs);
 
-      // Auto-stop at end of buffer
-      if (newCursorMs >= endMs) {
+      if (cursorIndexRef.current >= lastIndex) {
         isActiveRef.current = false;
-        finishReplay(accountId, sessionDateRef.current, endMs);
+        finishReplay(accountId, sessionDateRef.current, newCursorMs);
         return false;
       }
       return true;
