@@ -45,6 +45,7 @@ function emptySessionReason(data: ReplaySessionData, sessionDate: string): strin
 export function useReplayChartData(accountId: string | null, timeframe: Timeframe): {
   replayCandles: Candle[] | null;
   replayTradeEvents: ReplayTradeEvents | undefined;
+  replayPrice: number | null;
 } {
   const isReplaying = useTradingStore((s) => s.isReplaying);
   const replaySessionDate = useTradingStore((s) => s.replaySessionDate);
@@ -74,6 +75,18 @@ export function useReplayChartData(accountId: string | null, timeframe: Timefram
     useTradingStore.getState().onReplayStateChanged("stopped");
   }, [isReplaying, data, replaySessionDate, accountId]);
 
+  // Resolve the exact 1m close at the playback cursor. Do not derive position
+  // marks from the chart timeframe: a 5m/15m chart can lag the active 1m bar.
+  const replayPrice = useMemo<number | null>(() => {
+    if (!isReplaying || !data || data.tickBuffer.length === 0 || replayCursorTimestamp == null) return null;
+    let current: TickBar | null = null;
+    for (const bar of data.tickBuffer) {
+      if (bar.t > replayCursorTimestamp) break;
+      current = bar;
+    }
+    return current?.c ?? null;
+  }, [isReplaying, data, replayCursorTimestamp]);
+
   // Feed the replay cursor price into the paper-trading engine as well as the chart.
   // This keeps market fills, floating P&L and SL/TP evaluation on historical time.
   const replayCandles = useMemo<Candle[] | null>(() => {
@@ -82,10 +95,9 @@ export function useReplayChartData(accountId: string | null, timeframe: Timefram
   }, [isReplaying, data, replayCursorTimestamp, timeframe]);
 
   useEffect(() => {
-    if (!isReplaying || !replayCandles?.length) return;
-    const currentBar = replayCandles[replayCandles.length - 1];
-    if (currentBar) markReplay(selectedSymbol, currentBar.close);
-  }, [isReplaying, replayCandles, selectedSymbol]);
+    if (!isReplaying || replayPrice == null) return;
+    markReplay(selectedSymbol, replayPrice);
+  }, [isReplaying, replayPrice, selectedSymbol]);
 
   // Release replay price ownership when playback stops.
   useEffect(() => {
@@ -98,5 +110,6 @@ export function useReplayChartData(accountId: string | null, timeframe: Timefram
   return {
     replayCandles,
     replayTradeEvents: isReplaying ? data?.tradeEvents : undefined,
+    replayPrice,
   };
 }
