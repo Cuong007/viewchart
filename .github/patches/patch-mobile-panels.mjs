@@ -105,6 +105,63 @@ binance = binance.replace(
   'const REST_BASE = "https://api.binance.com/api/v3";',
   'const REST_BASE = "https://data-api.binance.vision/api/v3";',
 );
+const pollingStateAnchor = '  let closedByUs = false;\\n\\n  const setState =';
+const pollingStatePatch = [
+  '  let closedByUs = false;',
+  '  let pollTimer: ReturnType<typeof setInterval> | null = null;',
+  '  let pollInFlight = false;',
+  '',
+  '  const stopPolling = () => {',
+  '    if (pollTimer) clearInterval(pollTimer);',
+  '    pollTimer = null;',
+  '  };',
+  '',
+  '  const pollQuotes = async () => {',
+  '    if (pollInFlight || closedByUs) return;',
+  '    pollInFlight = true;',
+  '    try {',
+  '      const results = await Promise.all(names.map(async (name) => {',
+  '        const pair = toBinancePair(name);',
+  '        if (!pair) return false;',
+  '        const response = await doFetch(`${REST_BASE}/ticker/bookTicker?symbol=${pair}`);',
+  '        if (!response.ok) return false;',
+  '        const quote = await response.json() as { bidPrice?: string; askPrice?: string };',
+  '        if (quote.bidPrice == null || quote.askPrice == null) return false;',
+  '        emit({ type: "tick", symbol: name, bid: Number(quote.bidPrice), ask: Number(quote.askPrice), timestamp: Date.now() });',
+  '        return true;',
+  '      }));',
+  '      setState(results.some(Boolean) ? "connected" : "reconnecting");',
+  '    } catch {',
+  '      setState("reconnecting");',
+  '    } finally {',
+  '      pollInFlight = false;',
+  '    }',
+  '  };',
+  '',
+  '  const startPolling = () => {',
+  '    if (pollTimer || closedByUs) return;',
+  '    void pollQuotes();',
+  '    pollTimer = setInterval(() => void pollQuotes(), 3000);',
+  '  };',
+  '',
+  '  const setState =',
+].join("\\n");
+if (!binance.includes('let pollTimer: ReturnType<typeof setInterval> | null = null;')) {
+  if (!binance.includes(pollingStateAnchor)) throw new Error("Could not find Binance polling-state anchor.");
+  binance = binance.replace(pollingStateAnchor, pollingStatePatch);
+}
+binance = binance.replace(
+  '    socket.onopen = () => {\\n      reconnectAttempt = 0;',
+  '    socket.onopen = () => {\\n      stopPolling();\\n      reconnectAttempt = 0;',
+);
+binance = binance.replace(
+  '      setState("reconnecting");\\n      const delay = Math.min(30_000, 1_000 * 2 ** reconnectAttempt);',
+  '      setState("reconnecting");\\n      startPolling();\\n      const delay = Math.min(30_000, 1_000 * 2 ** reconnectAttempt);',
+);
+binance = binance.replace(
+  '      if (reconnectTimer) clearTimeout(reconnectTimer);\\n      reconnectTimer = null;',
+  '      if (reconnectTimer) clearTimeout(reconnectTimer);\\n      stopPolling();\\n      reconnectTimer = null;',
+);
 writeFileSync(binancePath, binance);
 
 console.log("Applied OpenCharts mobile tools and Android network compatibility patches.");
