@@ -66,8 +66,6 @@ export function buildCsp(opts: CspOptions = {}): string {
   const tv = opts.allowTradingView === true;
   const directives: string[] = [
     "default-src 'self'",
-    // User-authored indicator scripts are evaluated at runtime (new Function).
-    // This is an explicit compatibility trade-off: only run code from indicators you trust.
     `script-src 'self' 'unsafe-eval'${tv ? " https://s3.tradingview.com" : ""}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data:",
