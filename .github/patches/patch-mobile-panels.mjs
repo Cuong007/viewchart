@@ -307,4 +307,146 @@ if (watchlist.includes(listAnchor) && !watchlist.includes('No instruments match 
 }
 writeFileSync(watchlistPath, watchlist);
 
+
+
+// Install live TradingView news timeline in both the side panel and bottom tab.
+// The official embed avoids unreliable public RSS proxies and requires no API key.
+const widgetsPath = "src/components/TradingViewWidgets.tsx";
+let widgets = readFileSync(widgetsPath, "utf8");
+if (!widgets.includes("export const TradingViewTimeline")) {
+  const anchor = "// ── Mini Chart Widget ───────────────────────────────────────";
+  if (!widgets.includes(anchor)) throw new Error("Could not find TradingView widget insertion point.");
+  const timeline = `
+ // ── News Timeline Widget ─────────────────────────────────────
+interface TradingViewTimelineProps {
+  symbol?: string;
+  theme: "dark" | "light";
+  height?: number | string;
+  className?: string;
+}
+
+export const TradingViewTimeline = memo(function TradingViewTimeline({
+  symbol = "BINANCE:BTCUSDT",
+  theme,
+  height = 520,
+  className = "",
+}: TradingViewTimelineProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isTradingViewAllowed() || !containerRef.current) return;
+    const container = containerRef.current;
+    safeClear(container);
+
+    const widgetDiv = document.createElement("div");
+    widgetDiv.className = "tradingview-widget-container__widget";
+    widgetDiv.style.height = "100%";
+    widgetDiv.style.width = "100%";
+    container.appendChild(widgetDiv);
+
+    const config = {
+      feedMode: "symbol",
+      symbol: mapSymbol(symbol),
+      isTransparent: true,
+      displayMode: "regular",
+      width: "100%",
+      height: "100%",
+      colorTheme: theme,
+      locale: "en",
+    };
+
+    const script = document.createElement("script");
+    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-timeline.js";
+    script.type = "text/javascript";
+    script.async = true;
+    script.textContent = JSON.stringify(config);
+    container.appendChild(script);
+
+    return () => safeClear(container);
+  }, [symbol, theme]);
+
+  return (
+    <div
+      ref={containerRef}
+      className={`tradingview-widget-container ${className}`}
+      style={{ height: typeof height === "number" ? `${height}px` : height, width: "100%" }}
+      aria-label={`Live market news for ${symbol}`}
+    />
+  );
+});
+
+`;
+  widgets = widgets.replace(anchor, timeline + anchor);
+}
+writeFileSync(widgetsPath, widgets);
+
+// Replace the right-side sample headlines with a clearly attributed live widget.
+const powerPath = "src/components/TradingPowerFeatures.tsx";
+let power = readFileSync(powerPath, "utf8");
+const newsMarker = "// ── News feed (sample data)";
+const newsStart = power.indexOf(newsMarker);
+if (newsStart >= 0) {
+  power = power.slice(0, newsStart) + `
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Newspaper } from "lucide-react";
+import { TradingViewTimeline } from "./TradingViewWidgets.tsx";
+
+export function NewsFeed({
+  symbol,
+  theme = "dark",
+}: {
+  symbol: string;
+  theme?: "dark" | "light";
+}) {
+  return (
+    <Card className="overflow-hidden">
+      <CardHeader className="p-3 pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Newspaper className="h-4 w-4 text-accent" />
+          Market News
+          <span className="ml-auto text-[9px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500">
+            Live feed
+          </span>
+        </CardTitle>
+        <p className="text-[10px] text-muted-foreground">
+          Headlines and market stories for {symbol}, provided by TradingView.
+        </p>
+      </CardHeader>
+      <CardContent className="p-0">
+        <TradingViewTimeline symbol={symbol} theme={theme} height={520} />
+      </CardContent>
+    </Card>
+  );
+}
+`;
+  power = power.replace('import { Clock, Globe } from "lucide-react";\nimport { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";\nimport { cn } from "@/lib/utils";\n', "");
+  writeFileSync(powerPath, power);
+}
+
+// Replace the bottom-panel sample news list with the same live provider.
+const bottomPath = "src/pages/trading/BottomPanel.tsx";
+let bottom = readFileSync(bottomPath, "utf8");
+if (!bottom.includes("TradingViewTimeline")) {
+  bottom = bottom.replace(
+    '  TradingViewEconomicCalendar,\n  isTradingViewAllowed,',
+    '  TradingViewEconomicCalendar,\n  TradingViewTimeline,\n  isTradingViewAllowed,',
+  );
+  const feedStart = bottom.indexOf("// ── News Feed ────────────────────────────────────────────────");
+  if (feedStart < 0) throw new Error("Could not find bottom-panel news feed.");
+  bottom = bottom.slice(0, feedStart) + `// ── Live News Feed ───────────────────────────────────────────
+function NewsFeed() {
+  return (
+    <div className="h-full min-h-[360px] overflow-y-auto">
+      <div className="px-3 py-1.5 bg-secondary/40 text-[10px] text-muted-foreground">
+        Live market headlines provided by TradingView. Stories are informational, not trading advice.
+      </div>
+      <TradingViewTimeline symbol="BINANCE:BTCUSDT" theme="dark" height={520} />
+    </div>
+  );
+}
+`;
+  writeFileSync(bottomPath, bottom);
+}
+console.log("Installed live TradingView news timeline in OpenCharts panels.");
+
 console.log("Applied OpenCharts mobile tools and Android network compatibility patches.");
