@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { MobileAccountBar, MobileTradingPanel } from "../components/MobileTradingPanel.tsx";
 import { NewsFeed as MarketNewsFeed } from "../components/TradingPowerFeatures.tsx";
 import { TradingViewTechnicalAnalysis } from "../components/TradingViewWidgets.tsx";
-import { INDICATOR_REGISTRY, type IndicatorType } from "../lib/indicators.ts";
+import type { IndicatorType } from "../lib/indicators.ts";
 import { safeStorage } from "../lib/safe-storage.ts";
 import type { PlaceOrderInput } from "../services/schemas.ts";
 import { updateChartPreferences } from "../hooks/useChartPreferences.ts";
@@ -92,10 +92,8 @@ export function TradingPage() {
 
   // ── Layout state ──
   const [showIndicatorMenu, setShowIndicatorMenu] = useState(false);
-  const [indicatorParams, setIndicatorParams] = useState<Record<string, Record<string, number>>>(() => Object.fromEntries(INDICATOR_REGISTRY.map((item) => [item.type, { ...item.defaultParams }])));
-  const updateIndicatorParam = useCallback((type: IndicatorType, key: string, value: number) => { setIndicatorParams((current) => ({ ...current, [type]: { ...current[type], [key]: value } })); }, []);
   const [bottomTab, setBottomTab] = useState<
-    "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators"
+    "positions" | "orders" | "history" | "journal" | "calendar" | "news"
   >("positions");
   const [rightPanel, setRightPanel] = useState<
     "order" | "dom" | "watchlist" | "news" | "tv-analysis"
@@ -220,7 +218,6 @@ export function TradingPage() {
               timeframe={replayCandles ? "1m" : timeframe}
               isDark={isDark}
               activeIndicators={activeIndicators}
-              indicatorParams={indicatorParams}
               drawingTool={drawingTool}
               drawings={drawings}
               onAddDrawing={addDrawing}
@@ -269,10 +266,6 @@ export function TradingPage() {
           <BottomPanel
             tab={bottomTab}
             onTabChange={setBottomTab}
-            activeIndicators={activeIndicators}
-            indicatorParams={indicatorParams}
-            onToggleIndicator={toggleIndicator}
-            onIndicatorParamChange={updateIndicatorParam}
             positions={positions}
             orders={orders}
             accountId={activeAccountId}

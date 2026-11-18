@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { BookOpen, Clock, Globe, History, Newspaper, TrendingUp, Activity, Settings2, Plus, X } from "lucide-react";
-import { INDICATOR_REGISTRY, type IndicatorType } from "../../lib/indicators.ts";
+import { BookOpen, Clock, Globe, History, Newspaper, TrendingUp } from "lucide-react";
 import { useAuthStore } from "../../services/store.tsx";
 import { useTradingStore } from "../../services/store.tsx";
 import {
@@ -47,11 +46,7 @@ function getErrorMessage(error: unknown): string {
 }
 
 export interface BottomPanelProps {
-  tab: "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators";
-  activeIndicators: IndicatorType[];
-  indicatorParams: Record<string, Record<string, number>>;
-  onToggleIndicator: (type: IndicatorType) => void;
-  onIndicatorParamChange: (type: IndicatorType, key: string, value: number) => void;
+  tab: "positions" | "orders" | "history" | "journal" | "calendar" | "news";
   onTabChange: (t: "positions" | "orders" | "history" | "journal" | "calendar" | "news") => void;
   positions: Position[];
   orders: Order[];
@@ -210,7 +205,6 @@ export function BottomPanel({
     },
     { key: "calendar", label: "Calendar", icon: Globe },
     { key: "news", label: "News", icon: Newspaper },
-    { key: "indicators", label: "Indicators", icon: Activity },
   ];
   // The calendar and news tabs are sample data; a live broker must not show it.
   const visibleTabs = isHyperliquidMode()
@@ -319,7 +313,6 @@ export function BottomPanel({
         )}
         {tab === "calendar" && <EconomicCalendar />}
         {tab === "news" && <NewsFeed />}
-        {tab === "indicators" && <IndicatorsPanel active={activeIndicators} params={indicatorParams} onToggle={onToggleIndicator} onParamChange={onIndicatorParamChange} />}
       </div>
     </div>
   );
@@ -562,61 +555,6 @@ function NewsFeed() {
         Live market headlines provided by TradingView. Stories are informational, not trading advice.
       </div>
       <TradingViewTimeline symbol="BINANCE:BTCUSDT" theme="dark" height={520} />
-    </div>
-  );
-}
-
-
-function IndicatorsPanel({
-  active,
-  params,
-  onToggle,
-  onParamChange,
-}: {
-  active: IndicatorType[];
-  params: Record<string, Record<string, number>>;
-  onToggle: (type: IndicatorType) => void;
-  onParamChange: (type: IndicatorType, key: string, value: number) => void;
-}) {
-  return (
-    <div className="grid grid-cols-1 gap-2 p-2 sm:grid-cols-2 xl:grid-cols-3">
-      {INDICATOR_REGISTRY.map((indicator) => {
-        const enabled = active.includes(indicator.type);
-        const values = params[indicator.type] ?? indicator.defaultParams;
-        return (
-          <section key={indicator.type} className="rounded-md border border-border bg-background p-2">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: indicator.color }} />
-                <div className="min-w-0">
-                  <div className="text-xs font-semibold text-foreground">{indicator.label}</div>
-                  <div className="text-[10px] text-muted-foreground">{indicator.type} · {indicator.pane === "overlay" ? "On chart" : "Separate pane"}</div>
-                </div>
-              </div>
-              <button type="button" onClick={() => onToggle(indicator.type)}
-                className={cn("rounded px-2.5 py-1 text-[10px] font-semibold", enabled ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}>
-                {enabled ? "Added" : "Add"}
-              </button>
-            </div>
-            {Object.keys(indicator.defaultParams).length > 0 && (
-              <div className="mt-2 grid grid-cols-2 gap-2 border-t border-border pt-2">
-                {Object.entries(indicator.defaultParams).map(([key, defaultValue]) => (
-                  <label key={key} className="flex flex-col gap-1 text-[10px] text-muted-foreground">
-                    <span>{key === "stdDev" ? "Std Dev" : key === "kPeriod" ? "%K Period" : key === "dPeriod" ? "%D Period" : key === "fast" ? "Fast" : key === "slow" ? "Slow" : key === "signal" ? "Signal" : "Period"}</span>
-                    <input type="number" min={1} max={500} step={key === "stdDev" ? 0.1 : 1}
-                      value={values[key] ?? defaultValue}
-                      onChange={(event) => {
-                        const value = Number(event.target.value);
-                        if (Number.isFinite(value) && value > 0) onParamChange(indicator.type, key, value);
-                      }}
-                      className="h-7 w-full rounded border border-border bg-card px-2 text-xs text-foreground outline-none focus:border-primary" />
-                  </label>
-                ))}
-              </div>
-            )}
-          </section>
-        );
-      })}
     </div>
   );
 }
