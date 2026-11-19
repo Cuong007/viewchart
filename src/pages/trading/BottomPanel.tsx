@@ -457,31 +457,38 @@ export function BottomPanel({
         {tab === "history" && <TradeHistoryTable accountId={accountId} />}
         {tab === "journal" && (
           <div className="flex flex-col h-full">
-          <SnapshotToolbar<JournalEntry[]> storageKey={"opencharts_trade_journal_snapshots_" + (accountId || "none")} data={loadedJournalSnapshot ?? visibleJournalEntries} onLoad={setLoadedJournalSnapshot} onNew={startNewJournal} label="nhật ký giao dịch" isLoaded={loadedJournalSnapshot !== null} getData={async () => visibleJournalEntries}/>
-          {loadedJournalSnapshot && <div className="px-2 py-1 text-[10px] text-warning">Đang xem bản nhật ký đã tải · chế độ chỉ đọc.</div>}
+          <SnapshotToolbar<JournalEntry[]> storageKey={"opencharts_trade_journal_snapshots_" + (accountId || "none")} data={loadedJournalSnapshot ?? visibleJournalEntries} onLoad={setLoadedJournalSnapshot} onNew={startNewJournal} label="nhật ký giao dịch" isLoaded={loadedJournalSnapshot !== null} getData={async () => loadedJournalSnapshot ?? visibleJournalEntries}/>
+          {loadedJournalSnapshot && <div className="px-2 py-1 text-[10px] text-warning">Đang chỉnh sửa bản nhật ký đã tải · bấm “Lưu thay đổi” để cập nhật bản lưu.</div>}
           <div className="flex-1 min-h-0">
           <TradeJournalPanel
             entries={loadedJournalSnapshot ?? visibleJournalEntries}
             isLoading={journalLoading}
             readOnly={false}
             accountId={accountId}
-            onCreateEntry={
-              onCreateJournal as unknown as (
-                data: Partial<{ notes: string; tags: string[] }> & {
-                  notes: string;
-                  tags: string[];
-                },
-              ) => void
-            }
-            onUpdateEntry={
-              onUpdateJournal as unknown as (
-                id: string,
-                data: Partial<{ notes: string; tags: string[] }> & {
-                  notes: string;
-                  tags: string[];
-                },
-              ) => void
-            }
+            onCreateEntry={(data) => {
+              if (loadedJournalSnapshot !== null) {
+                const entry: JournalEntry = {
+                  id: typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Date.now()),
+                  accountId: accountId || "",
+                  ...data,
+                  tags: data.tags || [],
+                  notes: data.notes || "",
+                  createdAt: new Date().toISOString(),
+                };
+                setLoadedJournalSnapshot((current) => current ? [entry, ...current] : [entry]);
+              } else {
+                onCreateJournal(data as CreateJournalEntryInput);
+              }
+            }}
+            onUpdateEntry={(id, data) => {
+              if (loadedJournalSnapshot !== null) {
+                setLoadedJournalSnapshot((current) => current
+                  ? current.map((entry) => entry.id === id ? { ...entry, ...data } : entry)
+                  : current);
+              } else {
+                onUpdateJournal(id, data as UpdateJournalEntryInput);
+              }
+            }}
             onDeleteEntry={(id) => { if (loadedJournalSnapshot !== null) setLoadedJournalSnapshot((current) => current ? current.filter((entry) => entry.id !== id) : current); else onDeleteJournal(id); }}
           />
           </div></div>
