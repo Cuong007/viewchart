@@ -23,10 +23,9 @@ export function ReplayScrubber({ accountId }: { accountId: string }) {
   const sessionDate = replaySessionDate;
 
   const startMs = tickBuffer[0]?.t ?? null;
-  // The selected replay date is only the starting point. The timeline
-  // always extends to the current wall clock, even when the selected day is
-  // months old or its feed ended at the market close.
-  const endMs = Date.now();
+  // Scrubber spans actual available replay candles only. It must not use
+  // wall-clock time: gaps between trading sessions are not replay bars.
+  const endMs = tickBuffer[tickBuffer.length - 1]?.t ?? null;
   const rangeMs = startMs != null && endMs != null ? Math.max(0, endMs - startMs) : 0;
 
   const thumbPct =
