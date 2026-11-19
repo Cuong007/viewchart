@@ -14,6 +14,7 @@ import {
   type LogicalRange,
   type SeriesMarker,
   type Time,
+  TickMarkType,
 } from "lightweight-charts";
 import { Clock, ListTree } from "lucide-react";
 import {
@@ -96,6 +97,27 @@ function formatCrosshairDate(time: Time): string {
   // Keep the formatter ASCII-only: Android system fonts may not contain
   // mathematical-bold Unicode digits, which previously rendered as "??".
   return `${p.day}/${p.month}/${p.year} ${p.hours}:${p.minutes}`;
+}
+
+// The bottom time axis uses a separate formatter from the crosshair label.
+// Without this callback Lightweight Charts falls back to locale month names
+// ("Nov"), even when localization.dateFormat is numeric.
+function formatTimeScaleTick(time: Time, tickMarkType: TickMarkType): string {
+  const p = crosshairDateParts(time);
+  switch (tickMarkType) {
+    case TickMarkType.Year:
+      return p.year;
+    case TickMarkType.Month:
+      return `${p.month}/${p.year}`;
+    case TickMarkType.DayOfMonth:
+      return `${p.day}/${p.month}`;
+    case TickMarkType.TimeWithSeconds:
+      return `${p.hours}:${p.minutes}:00`;
+    case TickMarkType.Time:
+      return `${p.hours}:${p.minutes}`;
+    default:
+      return `${p.day}/${p.month}`;
+  }
 }
 // ── Staleness recovery ─────────────────────────────────────────────────────
 // Shared by the live-candle and tick-smoothing effects so either path can
@@ -1633,6 +1655,7 @@ export function ChartPanel({
       },
       timeScale: {
         borderColor: colors.grid,
+        tickMarkFormatter: formatTimeScaleTick,
         timeVisible: true,
         secondsVisible: timeframeRef.current === "1m",
         rightOffset: timeframeRef.current === "1m" ? 10 : 6,
