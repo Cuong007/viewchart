@@ -8,17 +8,8 @@ import { safeSession } from "../../lib/safe-storage.ts";
 const SPEED_OPTIONS = [0.5, 1, 2, 5, 10] as const;
 type Speed = (typeof SPEED_OPTIONS)[number];
 
-function formatReplayTime(epochMs: number): string {
-  return new Date(epochMs).toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
-}
-
 export function ReplayHUD({ accountId }: { accountId: string }) {
-  const { isReplaying, replayPaused, replaySpeed, replayCursorTimestamp, selectedSymbol, setReplaySessionDate } =
+  const { isReplaying, replayPaused, replaySpeed, selectedSymbol, setReplaySessionDate } =
     useTradingStore();
 
   const storageKey = `replay_session_date_${accountId}`;
@@ -67,13 +58,7 @@ export function ReplayHUD({ accountId }: { accountId: string }) {
           max={toLocalDateString()}
           className="text-[11px] bg-transparent border border-border rounded px-1 py-0 text-foreground w-[7.5rem] tabular-nums"
         />
-      ) : (
-        replayCursorTimestamp != null && (
-          <span className="text-[11px] font-mono text-orange-400 tabular-nums">
-            {formatReplayTime(replayCursorTimestamp)}
-          </span>
-        )
-      )}
+      ) : null}
 
       {!isReplaying ? (
         <button
