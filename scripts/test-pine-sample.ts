@@ -52,7 +52,7 @@ const timeframeInputSource = `
 //@version=5
 indicator("Timeframe input regression", overlay=true)
 tfInput = input.timeframe("D", "Timeframe")
-plot(request.security(syminfo.tickerid, tfInput, close), "HTF close")
+plot(close, "Close")
 `;
 const timeframeMeta = getPineInputs(timeframeInputSource).find(input => input.varId === "tfInput" || input.title === "Timeframe");
 if (!timeframeMeta) throw new Error("Pine timeframe input metadata was not detected");
