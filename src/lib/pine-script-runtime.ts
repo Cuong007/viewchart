@@ -28,6 +28,27 @@ function candleToPineData(candle: Candle) {
   const openTime = Number(candle.time) * 1000;
   return { openTime, closeTime: openTime, open: Number(candle.open), high: Number(candle.high), low: Number(candle.low), close: Number(candle.close), volume: Number(candle.volume ?? 0) };
 }
+function inferPineTimeframe(candles: Candle[]): string {
+  // Candle.time is stored in seconds in OpenCharts. Use the most frequent
+  // positive interval rather than the last interval, which may span a session gap.
+  const counts = new Map<number, number>();
+  for (let index = 1; index < candles.length; index++) {
+    const previous = Number(candles[index - 1]?.time);
+    const current = Number(candles[index]?.time);
+    const seconds = Math.round(current - previous);
+    if (Number.isFinite(seconds) && seconds > 0 && seconds <= 31 * 86400) {
+      counts.set(seconds, (counts.get(seconds) ?? 0) + 1);
+    }
+  }
+  const interval = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0]?.[0] ?? 60;
+  if (interval < 60) return `${interval}S`;
+  if (interval % 86400 === 0) {
+    const days = interval / 86400;
+    return days % 7 === 0 ? `${days / 7}W` : `${days}D`;
+  }
+  if (interval % 60 === 0) return String(interval / 60);
+  return `${interval}S`;
+}
 function normalizePlots(rawPlots: unknown): PinePlot[] {
   if (!rawPlots || typeof rawPlots !== "object") return [];
   return Object.entries(rawPlots as Record<string, any>)
@@ -56,7 +77,7 @@ export async function executePineScript(code: string, candles: Candle[], inputOv
   if (candles.length < 2) throw new Error("Không đủ dữ liệu nến để chạy Pine Script.");
   const source = candles.map(candleToPineData).filter(bar => Number.isFinite(bar.openTime) && Number.isFinite(bar.open) && Number.isFinite(bar.high) && Number.isFinite(bar.low) && Number.isFinite(bar.close));
   if (!source.length) throw new Error("Dữ liệu OHLCV không hợp lệ.");
-  const runtime = new PineTS(source);
+  const chartTimeframe = inferPineTimeframe(candles);\n  // PineTS needs the chart timeframe in its Context for timeframe.period and\n  // request.security(..., timeframe.period, ...). Passing only OHLCV leaves it\n  // empty, causing security() to receive an undefined timeframe.\n  const runtime = new PineTS(source, undefined, chartTimeframe);
   const indicator = new Indicator(code);
   for (const meta of indicator.getInputsMeta()) {
     if (Object.prototype.hasOwnProperty.call(inputOverrides, meta.id)) indicator.input[meta.id] = inputOverrides[meta.id];
