@@ -23,11 +23,7 @@ export function ReplayScrubber({ accountId }: { accountId: string }) {
   const sessionDate = replaySessionDate;
 
   const startMs = tickBuffer[0]?.t ?? null;
-  const lastBarMs = tickBuffer[tickBuffer.length - 1]?.t ?? null;
-  const today = new Date();
-  const currentLocalDate = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
-  // Today's replay timeline ends at wall-clock now, not the latest downloaded candle.
-  const endMs = sessionDate === currentLocalDate ? Date.now() : lastBarMs;
+  const endMs = tickBuffer[tickBuffer.length - 1]?.t ?? null;
   const rangeMs = startMs != null && endMs != null ? endMs - startMs : 0;
 
   const thumbPct =
