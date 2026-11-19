@@ -26,6 +26,26 @@ export function usePinePlots(
 
     const indexByTime = new Map<number,number>();
     chartData.forEach((bar,index)=>indexByTime.set(Number(bar.time),index));
+    // Pine indicators default to overlay=false unless the author explicitly
+    // enables overlay=true. In practice, many user scripts omit that flag for
+    // price-following EMA/SMA lines. Detect plots whose values occupy the
+    // candle's price domain and bind them to the exact same "right" scale as
+    // the candles; oscillator values (RSI/MACD etc.) remain on isolated scales.
+    const candlePrices = candles.flatMap((bar) => [Number(bar.low), Number(bar.high)]).filter(Number.isFinite);
+    const candleMin = candlePrices.length ? Math.min(...candlePrices) : Number.NaN;
+    const candleMax = candlePrices.length ? Math.max(...candlePrices) : Number.NaN;
+    const candleSpan = candleMax - candleMin;
+    const priceDomainMin = candleMin - candleSpan * 0.2;
+    const priceDomainMax = candleMax + candleSpan * 0.2;
+    const isPriceDomainPlot = (plot: PineExecutionResult["plots"][number]): boolean => {
+      const style = plot.type.replace(/^style_/, "");
+      if (["histogram", "columns", "shape", "char", "arrow", "background", "barcolor", "bar", "candle"].includes(style)) return false;
+      if (!Number.isFinite(priceDomainMin) || !Number.isFinite(priceDomainMax)) return false;
+      const values = plot.data.map(point => point.value).filter(Number.isFinite);
+      if (!values.length) return false;
+      const matching = values.filter(value => value >= priceDomainMin && value <= priceDomainMax).length;
+      return matching / values.length >= 0.6;
+    };
     const rawTime=(time:unknown)=>{const n=Number(time);return n>1e12?Math.floor(n/1000):n;};
 
     const shiftedTime = (time:number, offset:number):number => {
@@ -53,7 +73,8 @@ export function usePinePlots(
       // baseline) must never participate in the candlestick price autoscale.
       // Lightweight Charts 4.x renders custom price scales as independent
       // overlay scales, preserving the main candle scale.
-      const isolatedScale = !plot.overlay || style === "histogram" || style === "columns";
+      const followsCandlePrice = plot.overlay || isPriceDomainPlot(plot);
+      const isolatedScale = !followsCandlePrice || style === "histogram" || style === "columns";
       const common = {
         title: plot.title,
         priceScaleId: isolatedScale ? `pine-${plot.id}` : "right",
