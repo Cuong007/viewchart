@@ -40,6 +40,8 @@ jobs:
             src/pages/trading/useIndicators.ts \
             src/lib/indicators.ts \
             src/lib/pine-script-runtime.ts \
+            src/pages/trading/PineScriptEditor.tsx \
+            src/pages/trading/usePinePlots.ts \
             src/pages/trading/useReplayPlayback.ts \
             src/pages/trading/useReplayChartData.ts \
             src/services/replay.ts \
