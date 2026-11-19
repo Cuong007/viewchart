@@ -43,6 +43,7 @@ jobs:
             src/pages/trading/PineScriptEditor.tsx \
             src/pages/trading/usePinePlots.ts \
             examples/pine-scripts/opencharts-feature-test.pine \
+            scripts/test-pine-sample.ts \
             src/pages/trading/useReplayPlayback.ts \
             src/pages/trading/useReplayChartData.ts \
             src/services/replay.ts \
@@ -132,6 +133,9 @@ jobs:
       - name: Run upstream test suite (non-blocking for APK packaging)
         continue-on-error: true
         run: npm run test
+
+      - name: Smoke test Pine Script sample with PineTS
+        run: npx tsx scripts/test-pine-sample.ts
 
       - name: Build web app (Binance live market data + paper trading)
         env:

@@ -21,13 +21,13 @@ fill(plotFast, plotSlow, color=emaFast >= emaSlow ? color.new(color.green, 82) :
 hline(1800, "Mốc kiểm tra hline", color=color.gray, linestyle=hline.style_dotted, linewidth=1)
 plot(ta.sma(close, 10), "SMA dạng bậc", color=color.fuchsia, linewidth=2, style=plot.style_stepline)
 plot(ta.rsi(close, 14), "RSI ẩn", color=color.yellow, display=display.none)
+sameTimeframeClose = request.security(syminfo.tickerid, timeframe.period, close)
+plot(sameTimeframeClose, "Security cùng khung", color=color.gray, display=display.none)
 
 // === BAR VISUALS ===
 trendUp = emaFast >= emaSlow
-if showBackground
-    bgcolor(trendUp ? color.new(color.green, 94) : color.new(color.red, 94))
-if showBarColors
-    barcolor(trendUp ? color.green : color.red)
+bgcolor(showBackground ? (trendUp ? color.new(color.green, 94) : color.new(color.red, 94)) : na)
+barcolor(showBarColors ? (trendUp ? color.green : color.red) : na)
 plotshape(showSignals and ta.crossover(emaFast, emaSlow), title="BUY shape", style=shape.triangleup, location=location.belowbar, color=color.lime, text="BUY", textcolor=color.black, size=size.small)
 plotshape(showSignals and ta.crossunder(emaFast, emaSlow), title="SELL shape", style=shape.triangledown, location=location.abovebar, color=color.red, text="SELL", textcolor=color.white, size=size.small)
 plotchar(barstate.islast, title="Last bar char", char="◆", location=location.top, color=color.yellow)
