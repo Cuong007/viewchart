@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { useTradingStore } from "../../services/store.tsx";
 import { useReplaySession } from "../../services/queries.ts";
 import { api } from "../../services/api.ts";
-import { TF_INTERVAL_MS, type Timeframe } from "./constants.ts";
+import type { Timeframe } from "./constants.ts";
 
 /** How often to push replayCursorTimestamp to the Zustand store (ms). */
 const STORE_SYNC_MS = 100;
@@ -106,38 +106,25 @@ export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
     }
   }, [isReplaying]);
 
-  // Sync tick buffer ref when session data loads
+  // Replay advances on raw 1-minute bars, regardless of the chart timeframe.
+  // Keep the current cursor stable while polling appends new bars.
   useEffect(() => {
-    if (sessionData?.tickBuffer) {
-      tickBufferRef.current = sessionData.tickBuffer;
-      const newestBarTime = sessionData.tickBuffer[sessionData.tickBuffer.length - 1]?.t ?? null;
-      if (newestBarTime != null && newestBarTime !== latestBufferEndRef.current) {
-        latestBufferEndRef.current = newestBarTime;
-        lastBufferGrowthAtRef.current = Date.now();
-      }
-      const interval = TF_INTERVAL_MS[timeframe] ?? 60_000;
-      const grouped = new Map<number, TickBar>();
-      for (const bar of sessionData.tickBuffer) {
-        const bucket = Math.floor(bar.t / interval) * interval;
-        const prev = grouped.get(bucket);
-        if (!prev) grouped.set(bucket, { ...bar, t: bucket + interval - 60_000 });
-        else grouped.set(bucket, { t: bucket + interval - 60_000, o: prev.o, h: Math.max(prev.h, bar.h), l: Math.min(prev.l, bar.l), c: bar.c, v: prev.v + bar.v });
-      }
-      playbackBarsRef.current = [...grouped.values()];
-      if (previousTimeframeRef.current !== timeframe) {
-        const cursor = useTradingStore.getState().replayCursorTimestamp;
-        let idx = 0;
-        while (idx < playbackBarsRef.current.length && (playbackBarsRef.current[idx]?.t ?? Infinity) <= (cursor ?? -Infinity)) idx++;
-        cursorIndexRef.current = Math.max(0, idx - 1);
-        localCursorMsRef.current = playbackBarsRef.current[cursorIndexRef.current]?.t ?? null;
-      } else {
-        cursorIndexRef.current = 0;
-        localCursorMsRef.current = null;
-      }
-      previousTimeframeRef.current = timeframe;
-      stepAccumulatorRef.current = 0;
+    const nextBuffer = sessionData?.tickBuffer;
+    if (!nextBuffer?.length) return;
+    const previousCursor = localCursorMsRef.current ?? useTradingStore.getState().replayCursorTimestamp;
+    tickBufferRef.current = nextBuffer;
+    playbackBarsRef.current = nextBuffer;
+    if (previousCursor != null) {
+      let idx = 0;
+      while (idx < nextBuffer.length && (nextBuffer[idx]?.t ?? Infinity) <= previousCursor) idx++;
+      cursorIndexRef.current = Math.max(0, idx - 1);
+      localCursorMsRef.current = nextBuffer[cursorIndexRef.current]?.t ?? nextBuffer[0]!.t;
+    } else {
+      cursorIndexRef.current = Math.min(30, nextBuffer.length - 1);
+      localCursorMsRef.current = nextBuffer[cursorIndexRef.current]?.t ?? null;
     }
-  }, [sessionData, timeframe]);
+    stepAccumulatorRef.current = 0;
+  }, [sessionData]);
 
   // Detect external seeks: if the store cursor diverges from our local cursor
   // by more than 1s, accept the new position and recompute the tick index.
@@ -202,13 +189,9 @@ export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
       syncCursorToServer(now, lastServerSyncRef, accountId, sessionDateRef.current, newCursorMs);
 
       if (cursorIndexRef.current >= lastIndex) {
-        const latestBarMs = buf[lastIndex]?.t ?? 0;
-        const caughtLiveEdge = latestBarMs >= Date.now() - 120_000;
-        // A closed market may have no new bars; stop after the buffer has stayed
-        // unchanged across two polling windows instead of stalling forever.
-        const bufferSettled = lastBufferGrowthAtRef.current > 0
-          && Date.now() - lastBufferGrowthAtRef.current >= 30_000;
-        if (caughtLiveEdge || bufferSettled) {
+        const latestBarMs = tickBufferRef.current[tickBufferRef.current.length - 1]?.t ?? buf[lastIndex]?.t ?? 0;
+        const caughtLiveEdge = latestBarMs >= Math.floor(Date.now() / 60_000) * 60_000;
+        if (caughtLiveEdge) {
           isActiveRef.current = false;
           finishReplay(accountId, sessionDateRef.current, newCursorMs);
           return false;
@@ -231,7 +214,7 @@ export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
         rafIdRef.current = null;
       }
     };
-  }, [isReplaying, replayPaused, accountId, timeframe]);
+  }, [isReplaying, replayPaused, accountId]);
 
   // Cleanup on unmount
   useEffect(() => {
