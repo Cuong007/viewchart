@@ -3,6 +3,7 @@ import { MobileAccountBar, MobileTradingPanel } from "../components/MobileTradin
 import { NewsFeed as MarketNewsFeed } from "../components/TradingPowerFeatures.tsx";
 import { TradingViewTechnicalAnalysis } from "../components/TradingViewWidgets.tsx";
 import type { CustomIndicatorDefinition, IndicatorType } from "../lib/indicators.ts";
+import type { PineExecutionResult } from "../lib/pine-script-runtime.ts";
 import { safeStorage } from "../lib/safe-storage.ts";
 import type { PlaceOrderInput } from "../services/schemas.ts";
 import { updateChartPreferences } from "../hooks/useChartPreferences.ts";
@@ -95,15 +96,16 @@ export function TradingPage() {
   // ── Layout state ──
   const [showIndicatorMenu, setShowIndicatorMenu] = useState(false);
   const [bottomTab, setBottomTab] = useState<
-    "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators" | "indicator-code" | "data-sources"
+    "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators" | "indicator-code" | "data-sources" | "pine-script" | "strategy-tester"
   >(() => {
     const saved = safeStorage.getItem("opencharts_bottom_tab");
-    const valid = ["positions", "orders", "history", "journal", "calendar", "news", "indicators", "indicator-code", "data-sources"];
-    return valid.includes(saved ?? "") ? saved as "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators" | "indicator-code" | "data-sources" : "positions";
+    const valid = ["positions", "orders", "history", "journal", "calendar", "news", "indicators", "indicator-code", "data-sources", "pine-script", "strategy-tester"];
+    return valid.includes(saved ?? "") ? saved as "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators" | "indicator-code" | "data-sources" | "pine-script" | "strategy-tester" : "positions";
   });
   const [indicatorCodeOverrides, setIndicatorCodeOverrides] = useState<Partial<Record<IndicatorType, string>>>(() => {
     try { return JSON.parse(safeStorage.getItem("opencharts_indicator_code") || "{}"); } catch { return {}; }
   });
+  const [pineExecution, setPineExecution] = useState<PineExecutionResult | null>(null);
   const [customIndicators, setCustomIndicators] = useState<CustomIndicatorDefinition[]>(() => {
     try { return JSON.parse(safeStorage.getItem("opencharts_custom_indicators") || "[]"); } catch { return []; }
   });
@@ -333,6 +335,7 @@ export function TradingPage() {
               indicatorParams={indicatorParams}
               indicatorCodeOverrides={indicatorCodeOverrides}
               customIndicators={customIndicators}
+              pineExecution={pineExecution}
               drawingTool={drawingTool}
               drawings={drawings}
               onAddDrawing={addDrawing}
@@ -401,6 +404,9 @@ export function TradingPage() {
             onDeleteIndicator={deleteIndicator}
             onDeleteCustomIndicator={deleteCustomIndicator}
             onToggleCustomIndicator={toggleCustomIndicator}
+            pineCandles={replayCandles ?? candles ?? []}
+            pineExecution={pineExecution}
+            onPineExecution={setPineExecution}
             journalEntries={journalEntries}
             journalLoading={journalLoading}
             onCreateJournal={createJournal}
