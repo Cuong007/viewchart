@@ -30,6 +30,7 @@ export function PineScriptEditor({ candles, onExecution }: PineScriptEditorProps
   const [appliedCode, setAppliedCode] = useState<string | null>(null);
   const [appliedInputs, setAppliedInputs] = useState<Record<string, unknown>>({});
   const lastFingerprint = useRef("");
+  const runSequence = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inspectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fingerprint = () => {
@@ -47,17 +48,20 @@ export function PineScriptEditor({ candles, onExecution }: PineScriptEditorProps
     return () => { if (inspectTimer.current) clearTimeout(inspectTimer.current); };
   }, [code]);
   const runSource = async (source: string, automatic = false, overrides: Record<string, unknown> = inputValues) => {
+    const sequence = ++runSequence.current;
     if (!automatic) { setRunning(true); setError(""); }
     try {
       const next = await executePineScriptInWorker(source, candles, overrides);
+      if (sequence !== runSequence.current) return;
       setResult(next); onExecution(next); safeStorage.setItem(STORAGE_KEY, source);
       lastFingerprint.current = fingerprint();
       if (!automatic) { setAppliedCode(source); setAppliedInputs({ ...overrides }); }
       setError("");
     } catch (cause) {
+      if (sequence !== runSequence.current) return;
       const message = cause instanceof Error ? cause.message : String(cause);
       setError(message); setResult(null); onExecution(null);
-    } finally { if (!automatic) setRunning(false); }
+    } finally { if (!automatic && sequence === runSequence.current) setRunning(false); }
   };
   useEffect(() => {
     if (!appliedCode || candles.length < 2) return;
@@ -73,6 +77,7 @@ export function PineScriptEditor({ candles, onExecution }: PineScriptEditorProps
     if (typeof raw === "string" && (meta.type === "int" || meta.type === "float" || meta.type === "price")) {
       value = raw === "" ? meta.defval : Number(raw);
     }
+    runSequence.current++;
     setInputValues(current => ({ ...current, [meta.id]: value }));
   };
   const renderInput = (meta: PineInputMeta) => {
@@ -91,7 +96,7 @@ export function PineScriptEditor({ candles, onExecution }: PineScriptEditorProps
         <button type="button" onClick={() => { setCode(pineFeatureTest); setError(""); }} className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-2 font-medium hover:bg-secondary"><FileCode2 className="h-3.5 w-3.5" />Nạp mã mẫu</button>
         <button type="button" onClick={run} disabled={running || candles.length < 2} className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 font-medium text-primary-foreground disabled:opacity-50">{running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}{running ? "Đang chạy..." : "Thêm vào biểu đồ / Chạy"}</button>
       </div></div>
-    <textarea value={code} onChange={event => setCode(event.target.value)} spellCheck={false} aria-label="Pine Script source" className="min-h-[150px] flex-1 resize-y rounded-md border border-border bg-background p-3 font-mono text-[11px] leading-5 outline-none focus:border-primary" />
+    <textarea value={code} onChange={event => { runSequence.current++; setCode(event.target.value); }} spellCheck={false} aria-label="Pine Script source" className="min-h-[150px] flex-1 resize-y rounded-md border border-border bg-background p-3 font-mono text-[11px] leading-5 outline-none focus:border-primary" />
     {inputMeta.length > 0 && <details className="max-h-[190px] shrink-0 overflow-y-auto rounded-md border border-border p-2" open>
       <summary className="flex cursor-pointer list-none items-center gap-2 font-semibold"><Settings2 className="h-3.5 w-3.5" />Tham số chỉ báo / chiến lược ({inputMeta.length})</summary>
       <div className="mt-2 space-y-2">{groups.map(group=><section key={group}><div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{group || "Thông số"}</div>{inputMeta.filter(meta=>(meta.group||"")===group).map(renderInput)}</section>)}</div>
