@@ -1,4 +1,5 @@
 import { uid } from "../../lib/uid.ts";
+import { safeStorage } from "../../lib/safe-storage.ts";
 import type { Account, ClosedPosition, Fill, Order, Position, Symbol } from "../schemas.ts";
 import { DEMO_CHANNELS, publish } from "./bus.ts";
 import { getDemoSymbol } from "./instruments.ts";
@@ -58,6 +59,48 @@ const fills: Fill[] = [];
 const lastPrice = new Map<string, number>();
 // Symbols controlled by Bar Replay must never be overwritten by live market ticks.
 const replayControlledSymbols = new Set<string>();
+
+const ENGINE_STORAGE_KEY = "opencharts_paper_engine_v1";
+type PersistedEngineState = {
+  account: Account;
+  positions: Position[];
+  orders: Order[];
+  closed: ClosedPosition[];
+  fills: Fill[];
+  lastPrice: Array<[string, number]>;
+};
+
+function persistEngineState(): void {
+  safeStorage.setJSON(ENGINE_STORAGE_KEY, {
+    account,
+    positions,
+    orders,
+    closed,
+    fills,
+    lastPrice: [...lastPrice.entries()],
+  } satisfies PersistedEngineState);
+}
+
+function restoreEngineState(): void {
+  const saved = safeStorage.getJSON<PersistedEngineState | null>(ENGINE_STORAGE_KEY, null);
+  if (!saved || !saved.account || !Array.isArray(saved.positions) ||
+      !Array.isArray(saved.orders) || !Array.isArray(saved.closed) ||
+      !Array.isArray(saved.fills)) return;
+  Object.assign(account, saved.account);
+  positions.push(...saved.positions);
+  orders.push(...saved.orders);
+  closed.push(...saved.closed);
+  fills.push(...saved.fills);
+  if (Array.isArray(saved.lastPrice)) {
+    for (const [symbol, price] of saved.lastPrice) {
+      if (typeof symbol === "string" && Number.isFinite(price)) lastPrice.set(symbol, price);
+    }
+  }
+  replayControlledSymbols.clear();
+  recomputeEquity();
+}
+
+restoreEngineState();
 
 // ── Numeric helpers ───────────────────────────────────────────────────────
 
@@ -235,6 +278,7 @@ function emitEquity(): void {
 /** Recompute + broadcast once per batch of changes, never per position. */
 function settle(): void {
   recomputeEquity();
+  persistEngineState();
   emitEquity();
 }
 
@@ -393,6 +437,7 @@ export function modifyPosition(
     quantity: pos.quantity,
     averagePrice: pos.entryPrice,
   });
+  persistEngineState();
   return { ...pos };
 }
 
@@ -539,6 +584,7 @@ export function placeOrder(input: PlaceOrderArgs): Order {
     fillOrder(order, fillPrice);
     settle();
   }
+  persistEngineState();
   return { ...order };
 }
 
@@ -569,6 +615,7 @@ export function modifyOrder(orderId: string, mods: OrderModifications): Order {
 
   order.updatedAt = new Date().toISOString();
   publishOrder("OrderModified", order);
+  persistEngineState();
   return { ...order };
 }
 
@@ -584,6 +631,7 @@ export function cancelOrder(orderId: string): { success: boolean } {
   order.status = "CANCELED";
   order.updatedAt = new Date().toISOString();
   publishOrder("OrderCanceled", order);
+  persistEngineState();
   return { success: true };
 }
 
@@ -594,6 +642,7 @@ export function cancelAllOrders(): { success: boolean } {
     order.updatedAt = new Date().toISOString();
     publishOrder("OrderCanceled", order);
   }
+  persistEngineState();
   return { success: true };
 }
 
