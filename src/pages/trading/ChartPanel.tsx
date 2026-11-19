@@ -76,26 +76,18 @@ import {
   toUnixSeconds,
 } from "./utils.ts";
 
-function crosshairDateParts(time: Time) {
+function formatCrosshairDate(time: Time): string {
   const date = typeof time === "number"
     ? new Date(time * 1000)
     : typeof time === "string"
       ? new Date(time)
-      : new Date(time.year, time.month - 1, time.day);
-  return {
-    day: String(date.getDate()).padStart(2, "0"),
-    month: String(date.getMonth() + 1).padStart(2, "0"),
-    year: String(date.getFullYear()),
-    hours: String(date.getHours()).padStart(2, "0"),
-    minutes: String(date.getMinutes()).padStart(2, "0"),
-  };
-}
-
-function formatCrosshairDate(time: Time): string {
-  const p = crosshairDateParts(time);
-  // Keep the formatter ASCII-only: Android system fonts may not contain
-  // mathematical-bold Unicode digits, which previously rendered as "??".
-  return `${p.day}/${p.month}/${p.year} ${p.hours}:${p.minutes}`;
+      : new Date(Date.UTC(time.year, time.month - 1, time.day));
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0").replace(/[0-9]/g, (digit) => "𝟎𝟏𝟐𝟑𝟒𝟓𝟔𝟕𝟖𝟗"[Number(digit)]!);
+  const year = date.getFullYear();
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return day + "/" + month + "/" + year + " " + hours + ":" + minutes;
 }
 // ── Staleness recovery ─────────────────────────────────────────────────────
 // Shared by the live-candle and tick-smoothing effects so either path can
@@ -1611,7 +1603,7 @@ export function ChartPanel({
           width: 1,
           style: LineStyle.Dashed,
           labelBackgroundColor: "#363a45",
-          labelVisible: false,
+          labelVisible: true,
         },
         horzLine: {
           color: colors.crosshair,
@@ -1701,30 +1693,12 @@ export function ChartPanel({
     });
     volumeSeriesRef.current = volumeSeries;
 
-    // The built-in time-axis label is canvas-rendered and cannot style only
-    // the month segment. Use a small DOM label so the numeric month is truly
-    // bold on Android without relying on unsupported Unicode bold glyphs.
-    const crosshairDateLabel = document.createElement("div");
-    crosshairDateLabel.style.cssText = "position:absolute;bottom:0;display:none;transform:translateX(-50%);z-index:20;pointer-events:none;padding:2px 6px;border-radius:2px;background:#363a45;color:#f3f4f6;font:11px monospace;white-space:nowrap;";
-    containerRef.current.appendChild(crosshairDateLabel);
-
     // Subscribe to crosshair move for OHLCV legend
     chart.subscribeCrosshairMove((param) => {
-      if (!param?.time || !param.point || param.point.x < 0) {
-        crosshairDateLabel.style.display = "none";
+      if (!param?.time) {
         restoreLegendOnLeave(legendRestoredRef, lastCandleRef, legendVolRef, setLegend);
         return;
       }
-      const dateParts = crosshairDateParts(param.time);
-      crosshairDateLabel.replaceChildren();
-      const dayNode = document.createTextNode(dateParts.day + "/");
-      const monthNode = document.createElement("strong");
-      monthNode.textContent = dateParts.month;
-      monthNode.style.fontWeight = "700";
-      const restNode = document.createTextNode("/" + dateParts.year + " " + dateParts.hours + ":" + dateParts.minutes);
-      crosshairDateLabel.append(dayNode, monthNode, restNode);
-      crosshairDateLabel.style.left = `${param.point.x}px`;
-      crosshairDateLabel.style.display = "block";
       legendRestoredRef.current = false;
       const data = param.seriesData.get(candleSeries) as CandlestickData<Time> | undefined;
       if (data) {
@@ -1814,7 +1788,6 @@ export function ChartPanel({
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(handleRangeChange);
       ro.disconnect();
       drawingManager.destroy();
-      crosshairDateLabel.remove();
       drawingManagerRef.current = null;
       setSelectedDrawingIds([]);
       setShowDrawingSettings(false);
