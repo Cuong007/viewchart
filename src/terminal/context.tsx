@@ -451,7 +451,6 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
   const liveCandleUpdates = useTradingStore((s) => s.liveCandleUpdates);
   const liveCandle = liveCandleUpdates[chartKey];
   const liveTick = ticks[selectedSymbol];
-  const replayBar = isReplaying && replayCandles?.length ? replayCandles[replayCandles.length - 1] : null;
   const tick = replayMark != null
     ? { bid: replayMark, ask: replayMark, timestamp: useTradingStore.getState().replayCursorTimestamp ?? Date.now() }
     : liveTick;
