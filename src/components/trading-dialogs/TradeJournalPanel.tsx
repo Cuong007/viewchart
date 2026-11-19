@@ -33,6 +33,7 @@ interface JournalEntry {
 interface TradeJournalPanelProps {
   entries: JournalEntry[];
   isLoading: boolean;
+  readOnly?: boolean;
   accountId: string | null;
   onCreateEntry: (data: Partial<JournalEntry> & { notes: string; tags: string[] }) => void;
   onUpdateEntry: (
@@ -45,6 +46,7 @@ interface TradeJournalPanelProps {
 export function TradeJournalPanel({
   entries,
   isLoading,
+  readOnly = false,
   accountId,
   onCreateEntry,
   onUpdateEntry,
@@ -133,7 +135,7 @@ export function TradeJournalPanel({
           <BookOpen className="h-3 w-3" />
           Trade Journal
         </h3>
-        <button
+        {!readOnly && <button
           onClick={() => {
             resetForm();
             setShowForm(true);
@@ -141,7 +143,7 @@ export function TradeJournalPanel({
           className="flex items-center gap-1 px-2 py-0.5 text-[10px] rounded bg-primary/10 text-primary hover:bg-primary/20"
         >
           <Plus className="h-3 w-3" /> New
-        </button>
+        </button>}
       </div>
 
       {showForm && (
@@ -314,7 +316,7 @@ export function TradeJournalPanel({
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {!readOnly && <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => startEdit(entry)}
                       className="p-0.5 rounded hover:bg-secondary"
@@ -327,7 +329,7 @@ export function TradeJournalPanel({
                     >
                       <Trash2 className="h-3 w-3 text-destructive" />
                     </button>
-                  </div>
+                  </div>}
                 </div>
                 {entry.tags.length > 0 && (
                   <div className="flex gap-1 mb-1">
