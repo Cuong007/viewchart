@@ -760,4 +760,5 @@ export function __resetForTests(): void {
   account.equity = STARTING_BALANCE;
   account.margin = 0;
   account.freeMargin = STARTING_BALANCE;
+  safeStorage.removeItem(ENGINE_STORAGE_KEY);
 }
