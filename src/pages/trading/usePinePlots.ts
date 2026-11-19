@@ -37,7 +37,9 @@ export function usePinePlots(
 
     for (const plot of execution.plots) {
       const style = plot.type.replace(/^style_/, "");
-      if (["shape","char","background","barcolor","bar","candle"].includes(style)) continue;
+      // plotarrow values are directional magnitudes, not price values. Rendering
+      // them as a line series pollutes the shared price scale and hides candles.
+      if (["shape","char","arrow","background","barcolor","bar","candle"].includes(style)) continue;
       const data = plot.data.flatMap(point => {
         if (!finite(point.time) || !finite(point.value)) return [];
         const sourceIndex = indexByTime.get(point.time);
@@ -117,6 +119,11 @@ export function usePinePlots(
       if(canvas.width!==Math.round(width*dpr)||canvas.height!==Math.round(height*dpr)){canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);}
       ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);
       const rightEdge=Math.min(width,timeScale.width());
+      const visibleRange=timeScale.getVisibleLogicalRange();
+      const isVisibleTime=(time:number):boolean=>{
+        const index=indexByTime.get(time);
+        return index!==undefined&&(!visibleRange||(index>=visibleRange.from-2&&index<=visibleRange.to+2));
+      };
 
       // fill(plot1, plot2): shade the area between two Pine plot/hline series.
       // PineTS stores fill() as its own plot entry and keeps the source plot keys
@@ -143,14 +150,16 @@ export function usePinePlots(
         if(!firstKey||!secondKey)continue;
         const first=execution.rawPlots[firstKey],second=execution.rawPlots[secondKey];
         if(!Array.isArray(first?.data)||!Array.isArray(second?.data))continue;
-        const times=[...new Set<number>(first.data.map((p:AnyRecord)=>shiftedTime(rawTime(p.time),Number(p?.options?.offset)||0)).filter((t:number)=>Number.isFinite(t)))].sort((a,b)=>a-b);
+        const fillByTime=new Map<number,AnyRecord>();
+        for(const point of fill.data)fillByTime.set(rawTime(point.time),point);
+        const times=[...new Set<number>(first.data.map((p:AnyRecord)=>shiftedTime(rawTime(p.time),Number(p?.options?.offset)||0)).filter((t:number)=>Number.isFinite(t)&&isVisibleTime(t)))].sort((a,b)=>a-b);
         for(let index=0;index<times.length-1;index++){
           const t1=times[index]!,t2=times[index+1]!;
           const a1=valueAt(firstKey,t1),b1=valueAt(secondKey,t1),a2=valueAt(firstKey,t2),b2=valueAt(secondKey,t2);
           if(a1===null||b1===null||a2===null||b2===null)continue;
           const x1=xAt(t1),x2=xAt(t2),ay1=priceY(a1),by1=priceY(b1),ay2=priceY(a2),by2=priceY(b2);
           if(x1===null||x2===null||ay1===null||by1===null||ay2===null||by2===null)continue;
-          const fillPoint=fill.data.find((p:AnyRecord)=>rawTime(p.time)===t1);
+          const fillPoint=fillByTime.get(t1);
           const opts=fillPoint?.options??{};
           ctx.save();
           if(fill.options.gradient){
@@ -176,7 +185,7 @@ export function usePinePlots(
         const style=String(raw?.options?.style??"");
         if(!["background","barcolor","bar","candle"].includes(style))continue;
         for(const point of raw.data as AnyRecord[]){
-          const time=rawTime(point.time),x=xAt(time);if(x===null)continue;
+          const time=rawTime(point.time);if(!isVisibleTime(time))continue;const x=xAt(time);if(x===null)continue;
           const x2=nextX(time,x),barWidth=Math.max(2,Math.min(12,Math.abs(x2-x)*0.65)),options=point.options??{};
           if(style==="background"){
             if(point.value){ctx.save();ctx.fillStyle=colorOr(options.color,"rgba(41,98,255,0.12)");ctx.fillRect(x,0,Math.max(1,x2-x),height);ctx.restore();}
@@ -205,16 +214,39 @@ export function usePinePlots(
       for(const plot of execution.plots){
         const style=plot.type.replace(/^style_/,"");if(!["shape","char"].includes(style))continue;
         const rawData=execution.rawPlots[plot.id]?.data??[];
+        const optionsByTime=new Map<number,AnyRecord>();
+        for(const raw of rawData as AnyRecord[])optionsByTime.set(rawTime(raw.time),raw.options??{});
         for(const point of plot.data){
-          const raw=rawData.find((p:AnyRecord)=>rawTime(p.time)===point.time),options=raw?.options??{};
-          if(style==="shape"&&!point.value)continue;
           const markerTime=shiftedTime(point.time,Number(point.offset)||0);
+          if(!isVisibleTime(markerTime))continue;
+          const options=optionsByTime.get(point.time)??{};
+          if(style==="shape"&&!point.value)continue;
           const x=xAt(markerTime);if(x===null)continue;
           const bar=candleByTime.get(markerTime);const loc=String(options.location??"BelowBar").toLowerCase();
           let y:number|null=loc.includes("above")?(bar?priceY(bar.high):null):loc.includes("below")?(bar?priceY(bar.low):null):loc==="top"?16:loc==="bottom"?height-16:priceY(point.value);
           if(y===null)continue;
           const sizeName=String(options.size??"normal"),size=sizeName==="tiny"?3:sizeName==="small"?4:sizeName==="large"?7:sizeName==="huge"?9:5;
           drawShape(x,y,String(options.shape??(style==="char"?"char":"circle")),colorOr(options.color,plot.color||"#2962ff"),String(options.text??options.char??""),colorOr(options.textcolor,"#fff"),size);
+        }
+      }
+
+      // plotarrow(): keep magnitude out of the price scale and draw direction
+      // markers directly in the overlay canvas.
+      for(const plot of execution.plots){
+        if(plot.type.replace(/^style_/,"")!=="arrow")continue;
+        for(const point of plot.data){
+          if(!point.value)continue;
+          const markerTime=shiftedTime(point.time,Number(point.offset)||0);
+          if(!isVisibleTime(markerTime))continue;
+          const x=xAt(markerTime),bar=candleByTime.get(markerTime);
+          if(x===null||!bar)continue;
+          const up=point.value>0,anchor=priceY(up?bar.low:bar.high);
+          if(anchor===null)continue;
+          const magnitude=Math.max(5,Math.min(15,Math.abs(point.value)));
+          const y=anchor+(up?magnitude:-magnitude);
+          ctx.save();ctx.strokeStyle=up?"#26a69a":"#ef5350";ctx.lineWidth=1.5;
+          ctx.beginPath();ctx.moveTo(x,anchor);ctx.lineTo(x,y);ctx.stroke();ctx.restore();
+          drawShape(x,y,up?"arrow_up":"arrow_down",up?"#26a69a":"#ef5350","", "#fff",5);
         }
       }
 
@@ -284,11 +316,11 @@ export function usePinePlots(
     };
     const scheduleDraw=()=>requestAnimationFrame(draw),observer=new ResizeObserver(scheduleDraw);
     observer.observe(container);timeScale.subscribeVisibleLogicalRangeChange(scheduleDraw);
-    container.addEventListener("wheel",scheduleDraw,{passive:true});container.addEventListener("pointermove",scheduleDraw,{passive:true});container.addEventListener("touchmove",scheduleDraw,{passive:true});
+    // The overlay contains no pointer-dependent UI. Redrawing hundreds of Pine
+    // objects on every pointermove caused severe lag on mobile devices.
     draw();
     return ()=>{
       observer.disconnect();timeScale.unsubscribeVisibleLogicalRangeChange(scheduleDraw);
-      container.removeEventListener("wheel",scheduleDraw);container.removeEventListener("pointermove",scheduleDraw);container.removeEventListener("touchmove",scheduleDraw);
       canvas.remove();const current=chartRef.current;if(current)for(const series of seriesRef.current){try{current.removeSeries(series);}catch{/* disposed */}}seriesRef.current=[];
     };
   },[chartData,candles,execution,chartRef,candleSeriesRef,containerRef]);
