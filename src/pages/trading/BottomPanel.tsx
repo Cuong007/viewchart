@@ -451,7 +451,7 @@ export function BottomPanel({
         {tab === "history" && <TradeHistoryTable accountId={accountId} />}
         {tab === "journal" && (
           <div className="flex flex-col h-full">
-          <SnapshotToolbar<JournalEntry[]> storageKey={"opencharts_trade_journal_snapshots_" + (accountId || "none")} data={journalEntries} onLoad={setLoadedJournalSnapshot} label="nhật ký giao dịch"/>
+          <SnapshotToolbar<JournalEntry[]> storageKey={"opencharts_trade_journal_snapshots_" + (accountId || "none")} data={journalEntries} onLoad={setLoadedJournalSnapshot} label="nhật ký giao dịch" getData={async () => { if (!accountId) return []; const all: JournalEntry[] = []; for (let offset = 0; ; offset += 100) { const result = await api.getJournalEntries(accountId, { limit: 100, offset }); all.push(...(result.entries || [])); if (!result.entries || result.entries.length < 100) break; } return all; }}/>
           {loadedJournalSnapshot && <div className="px-2 py-1 text-[10px] text-warning">Đang xem bản nhật ký đã tải · chế độ chỉ đọc.</div>}
           <div className="flex-1 min-h-0">
           <TradeJournalPanel
@@ -552,7 +552,7 @@ export function BottomPanel({
 }
 
 type DataSnapshot<T> = { id: string; name: string; createdAt: string; data: T };
-function SnapshotToolbar<T>({ storageKey, data, onLoad, label }: { storageKey: string; data: T; onLoad: (value: T | null) => void; label: string }) {
+function SnapshotToolbar<T>({ storageKey, data, onLoad, label, getData }: { storageKey: string; data: T; onLoad: (value: T | null) => void; label: string; getData?: () => Promise<T> }) {
   const [snapshots, setSnapshots] = useState<DataSnapshot<T>[]>(() => { try { const v = JSON.parse(safeStorage.getItem(storageKey) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; } });
   const [selectedId, setSelectedId] = useState("");
   const persist = (next: DataSnapshot<T>[]) => { setSnapshots(next); safeStorage.setJSON(storageKey, next); };
@@ -607,7 +607,7 @@ function TradeHistoryTable({ accountId }: { accountId: string | null }) {
     );
   if (trades.length === 0)
     return (
-      <div className="flex flex-col h-full"><SnapshotToolbar<ClosedWithPlatformFee[]> storageKey={"opencharts_trade_history_snapshots_" + (accountId || "none")} data={trades} onLoad={setLoadedSnapshot} label="lịch sử giao dịch"/><div className="flex items-center justify-center flex-1 text-muted-foreground text-xs">
+      <div className="flex flex-col h-full"><SnapshotToolbar<ClosedWithPlatformFee[]> storageKey={"opencharts_trade_history_snapshots_" + (accountId || "none")} data={trades} onLoad={setLoadedSnapshot} label="lịch sử giao dịch" getData={async () => { if (!accountId) return []; const first = await api.getClosedPositions(accountId, 1); const all: ClosedWithPlatformFee[] = [...(first.data || [])]; for (let p = 2; p <= (first.totalPages || 1); p++) { const next = await api.getClosedPositions(accountId, p); all.push(...(next.data || [])); } return all; }}/><div className="flex items-center justify-center flex-1 text-muted-foreground text-xs">
         No trade history yet
         {activeAccount ? ` for ${activeAccount.label || accountId?.slice(0, 8)}` : ""}
       </div></div>
@@ -615,7 +615,7 @@ function TradeHistoryTable({ accountId }: { accountId: string | null }) {
 
   return (
     <div className="flex flex-col h-full">
-      <SnapshotToolbar<ClosedWithPlatformFee[]> storageKey={"opencharts_trade_history_snapshots_" + (accountId || "none")} data={trades} onLoad={setLoadedSnapshot} label="lịch sử giao dịch"/>
+      <SnapshotToolbar<ClosedWithPlatformFee[]> storageKey={"opencharts_trade_history_snapshots_" + (accountId || "none")} data={trades} onLoad={setLoadedSnapshot} label="lịch sử giao dịch" getData={async () => { if (!accountId) return []; const first = await api.getClosedPositions(accountId, 1); const all: ClosedWithPlatformFee[] = [...(first.data || [])]; for (let p = 2; p <= (first.totalPages || 1); p++) { const next = await api.getClosedPositions(accountId, p); all.push(...(next.data || [])); } return all; }}/>
       {loadedSnapshot && <div className="px-2 py-1 text-[10px] text-warning">Đang xem bản lưu lịch sử giao dịch.</div>}
       <table className="w-full text-[11px]">
         <thead className="sticky top-0 bg-card z-10">
