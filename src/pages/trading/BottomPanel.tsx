@@ -647,7 +647,7 @@ function TradeHistoryTable({ accountId }: { accountId: string | null }) {
 
   return (
     <div className="flex flex-col h-full">
-      <SnapshotToolbar<ClosedWithPlatformFee[]> storageKey={"opencharts_trade_history_snapshots_" + (accountId || "none")} data={trades} onLoad={setLoadedSnapshot} label="lịch sử giao dịch" getData={async () => { if (!accountId) return []; const first = await api.getClosedPositions(accountId, 1); const all: ClosedWithPlatformFee[] = [...(first.data || [])]; for (let p = 2; p <= (first.totalPages || 1); p++) { const next = await api.getClosedPositions(accountId, p); all.push(...(next.data || [])); } return all; }}/>
+      <SnapshotToolbar<ClosedWithPlatformFee[]> storageKey={"opencharts_trade_history_snapshots_" + (accountId || "none")} data={trades} onLoad={setLoadedSnapshot} onNew={startNewHistory} label="lịch sử giao dịch" getData={async () => { if (!accountId) return []; const first = await api.getClosedPositions(accountId, 1); const all: ClosedWithPlatformFee[] = [...(first.data || [])]; for (let p = 2; p <= (first.totalPages || 1); p++) { const next = await api.getClosedPositions(accountId, p); all.push(...(next.data || [])); } return historySessionStart ? all.filter((trade) => Date.parse(trade.openedAt || trade.closedAt || "") >= historySessionStart) : all; }}/>
       {loadedSnapshot && <div className="px-2 py-1 text-[10px] text-warning">Đang xem bản lưu lịch sử giao dịch.</div>}
       <table className="w-full text-[11px]">
         <thead className="sticky top-0 bg-card z-10">
