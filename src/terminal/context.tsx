@@ -330,7 +330,7 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
     if (replayMark == null || !Number.isFinite(replayMark) || replayMark <= 0) return positions;
     return positions.map((position) => {
       if (position.symbolName !== selectedSymbol) return position;
-      const direction = position.side === "LONG" ? 1 : -1;
+      const direction = ["LONG", "BUY"].includes(String(position.side).toUpperCase()) ? 1 : -1;
       const contractSize = position.contractSize ?? 1;
       return {
         ...position,
