@@ -29,7 +29,14 @@ export function ReplayScrubber({ accountId }: { accountId: string }) {
   const now = new Date();
   const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const lastBarMs = tickBuffer[tickBuffer.length - 1]?.t ?? null;
-  const endMs = sessionDate === todayLocal ? Date.now() : lastBarMs;
+  // Keep the scrubber endpoint identical to useReplayPlayback's stop target.
+  // Historical feeds can end at 16:39 while the replay session is expected to
+  // continue until 17:39; current-day replay follows the live wall clock.
+  const endMs = sessionDate === todayLocal
+    ? Date.now()
+    : lastBarMs != null
+      ? lastBarMs + 60 * 60 * 1000
+      : null;
   const rangeMs = startMs != null && endMs != null ? Math.max(0, endMs - startMs) : 0;
 
   const thumbPct =
