@@ -316,9 +316,12 @@ export function BottomPanel({
   };
 
   const ticks = useTradingStore((s) => s.ticks);
+  const isReplaying = useTradingStore((s) => s.isReplaying);
+  // TerminalProvider supplies replay-marked positions; live ticks must not overwrite them.
   const openPositions = positions
     .filter((position) => position.quantity > 0)
     .map((p) => {
+      if (isReplaying) return p;
       const tick = ticks[p.symbolName];
       if (!tick) return p;
       return {
