@@ -98,6 +98,7 @@
     "lightweight-charts": "^4.2.0",
     "lucide-react": "^0.575.0",
     "mqtt": "^5.16.1",
+    "pinets": "^0.13.1",
     "tailwind-merge": "^3.5.0",
     "viem": "^2.57.17",
     "zod": "^4.6.7",
