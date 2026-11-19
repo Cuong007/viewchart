@@ -96,7 +96,11 @@ export function TradingPage() {
   const [showIndicatorMenu, setShowIndicatorMenu] = useState(false);
   const [bottomTab, setBottomTab] = useState<
     "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators" | "indicator-code" | "data-sources"
-  >("positions");
+  >(() => {
+    const saved = safeStorage.getItem("opencharts_bottom_tab");
+    const valid = ["positions", "orders", "history", "journal", "calendar", "news", "indicators", "indicator-code", "data-sources"];
+    return valid.includes(saved ?? "") ? saved as "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators" | "indicator-code" | "data-sources" : "positions";
+  });
   const [indicatorCodeOverrides, setIndicatorCodeOverrides] = useState<Partial<Record<IndicatorType, string>>>(() => {
     try { return JSON.parse(safeStorage.getItem("opencharts_indicator_code") || "{}"); } catch { return {}; }
   });
@@ -143,10 +147,38 @@ export function TradingPage() {
   };
   const [rightPanel, setRightPanel] = useState<
     "order" | "dom" | "watchlist" | "news" | "tv-analysis"
-  >("order");
-  const [showRightPanel, setShowRightPanel] = useState(true);
+  >(() => {
+    const saved = safeStorage.getItem("opencharts_right_panel");
+    return saved === "order" || saved === "dom" || saved === "watchlist" || saved === "news" || saved === "tv-analysis" ? saved : "order";
+  });
+  const [showRightPanel, setShowRightPanel] = useState(() => safeStorage.getItem("opencharts_show_right_panel") !== "false");
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
+
+  // Save the complete workspace continuously, and flush it again when Android
+  // backgrounds or closes the WebView.
+  useEffect(() => {
+    const saveWorkspace = () => {
+      safeStorage.setJSON("opencharts_workspace_v1", {
+        selectedSymbol: useTradingStore.getState().selectedSymbol,
+        timeframe,
+        bottomTab,
+        rightPanel,
+        showRightPanel,
+        bottomPanelHeight,
+      });
+      safeStorage.setItem("opencharts_bottom_tab", bottomTab);
+      safeStorage.setItem("opencharts_right_panel", rightPanel);
+      safeStorage.setItem("opencharts_show_right_panel", String(showRightPanel));
+    };
+    saveWorkspace();
+    window.addEventListener("pagehide", saveWorkspace);
+    document.addEventListener("visibilitychange", saveWorkspace);
+    return () => {
+      window.removeEventListener("pagehide", saveWorkspace);
+      document.removeEventListener("visibilitychange", saveWorkspace);
+    };
+  }, [timeframe, bottomTab, rightPanel, showRightPanel, bottomPanelHeight]);
 
   // ── Vertical resize: chart vs bottom panel ──
   const [bottomPanelHeight, setBottomPanelHeight] = useState(() => {
