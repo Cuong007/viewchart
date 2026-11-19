@@ -316,9 +316,13 @@ export function BottomPanel({
   };
 
   const ticks = useTradingStore((s) => s.ticks);
+  const isReplaying = useTradingStore((s) => s.isReplaying);
+  // Positions passed by TerminalContext already contain replay marks and P&L.
+  // Never overwrite those values with live ticks while replay is active.
   const openPositions = positions
     .filter((position) => position.quantity > 0)
     .map((p) => {
+      if (isReplaying) return p;
       const tick = ticks[p.symbolName];
       if (!tick) return p;
       return {
