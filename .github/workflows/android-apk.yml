@@ -42,6 +42,8 @@ jobs:
             src/pages/trading/useReplayChartData.ts \
             src/services/replay.ts \
             src/services/queries.ts \
+            src/services/api.ts \
+            src/services/store.tsx \
             src/terminal/context.tsx \
             src/terminal/use-terminal.ts \
             src/pages/trading/ReplayHUD.tsx \
