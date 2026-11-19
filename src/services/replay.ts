@@ -49,8 +49,12 @@ let session: SessionState | null = null;
 /** Symbol to play back when the caller does not name one. */
 const DEFAULT_SYMBOL = "BTCUSD";
 
-/** Large multi-day buffer; the DNSE adapter pages historical data up to its 50k cache. */
-const SESSION_BAR_LIMIT = 50_000;
+/** Keep enough 1m bars to cover a full year of intraday sessions. */
+const SESSION_BAR_LIMIT = 150_000;
+/** A single request per calendar day avoids provider caps on wide date ranges. */
+const DAY_BAR_LIMIT = 2_000;
+/** Completed historical days are immutable; cache them across 15s replay refreshes. */
+const completedDayCache = new Map<string, Promise<Awaited<ReturnType<ReturnType<typeof getAdapter>["marketData"]["getCandles"]>>>>();
 
 /**
  * Bars revealed before playback begins. Starting exactly at the first bar
@@ -68,6 +72,11 @@ function dayBounds(sessionDate: string): { startMs: number; endMs: number } {
   return { startMs, endMs: Date.now() + 60_000 };
 }
 
+function localDateKey(ms: number): string {
+  const date = new Date(ms);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
 export async function getSession(
   sessionDate: string,
   symbol: string = DEFAULT_SYMBOL,
@@ -76,30 +85,75 @@ export async function getSession(
   const adapter = getAdapter();
   const { startMs, endMs } = dayBounds(sessionDate);
 
-  // The installed feeds retain at most the most recent year of 1m history.
-  // Avoid treating unrelated recent candles as history for an ancient date.
+  // A wide fromMs→now request is not reliable across market-data providers:
+  // some silently cap it to the latest trading session (often ending at
+  // 16:39). Fetch each calendar day independently so later sessions cannot be
+  // omitted by a provider's implicit range/page limit.
   const historyAvailable = startMs >= Date.now() - 365 * 24 * 60 * 60 * 1000;
-  const bars = historyAvailable ? await adapter.marketData.getCandles({
-    symbol,
-    timeframe: "1m",
-    limit: SESSION_BAR_LIMIT,
-    fromMs: startMs,
-    toMs: endMs,
-  }) : [];
+  const dayRanges: Array<{ day: string; fromMs: number; toMs: number }> = [];
+  if (historyAvailable) {
+    const cursor = new Date(startMs);
+    while (cursor.getTime() < endMs) {
+      const from = cursor.getTime();
+      const next = new Date(cursor);
+      next.setDate(next.getDate() + 1);
+      const to = Math.min(next.getTime(), endMs);
+      dayRanges.push({ day: localDateKey(from), fromMs: from, toMs: to });
+      cursor.setTime(next.getTime());
+    }
+  }
 
-  const tickBuffer = bars
-    .filter((c) => {
-      const ms = c.time * 1000;
-      return ms >= startMs && ms < endMs;
-    })
-    .map((c) => ({
-      t: c.time * 1000,
-      o: c.open,
-      h: c.high,
-      l: c.low,
-      c: c.close,
-      v: c.volume ?? 0,
+  const dayBars: Awaited<ReturnType<typeof adapter.marketData.getCandles>> = [];
+  // Limit concurrency to avoid flooding a broker/data gateway when replaying
+  // several months. Past days are cached; only today's partial day is refreshed.
+  for (let offset = 0; offset < dayRanges.length; offset += 6) {
+    const batch = dayRanges.slice(offset, offset + 6);
+    const results = await Promise.all(batch.map(async (range) => {
+      const cacheKey = `${symbol}:1m:${range.day}`;
+      const isCurrentDay = range.toMs >= endMs - 1;
+      if (!isCurrentDay) {
+        let pending = completedDayCache.get(cacheKey);
+        if (!pending) {
+          pending = adapter.marketData.getCandles({
+            symbol,
+            timeframe: "1m",
+            limit: DAY_BAR_LIMIT,
+            fromMs: range.fromMs,
+            toMs: range.toMs,
+          });
+          completedDayCache.set(cacheKey, pending);
+          pending.catch(() => completedDayCache.delete(cacheKey));
+        }
+        return pending;
+      }
+      return adapter.marketData.getCandles({
+        symbol,
+        timeframe: "1m",
+        limit: DAY_BAR_LIMIT,
+        fromMs: range.fromMs,
+        toMs: range.toMs,
+      });
     }));
+    for (const result of results) dayBars.push(...result);
+  }
+
+  const uniqueBars = new Map<number, (typeof dayBars)[number]>();
+  for (const candle of dayBars) {
+    const ms = candle.time * 1000;
+    if (ms >= startMs && ms < endMs) uniqueBars.set(ms, candle);
+  }
+  const bars = [...uniqueBars.values()]
+    .sort((a, b) => a.time - b.time)
+    .slice(0, SESSION_BAR_LIMIT);
+
+  const tickBuffer = bars.map((c) => ({
+    t: c.time * 1000,
+    o: c.open,
+    h: c.high,
+    l: c.low,
+    c: c.close,
+    v: c.volume ?? 0,
+  }));
 
   // Trades closed inside the replayed window become markers on the chart.
   let tradeEvents: ReplaySessionPayload["tradeEvents"] = [];
