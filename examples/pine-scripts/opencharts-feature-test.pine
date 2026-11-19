@@ -1,0 +1,63 @@
+//@version=5
+strategy("OpenCharts - Pine Feature Test", overlay=true, initial_capital=100000, pyramiding=1, commission_type=strategy.commission.percent, commission_value=0)
+
+// === INPUTS ===
+fastLength = input.int(9, "EMA nhanh", minval=1, maxval=100)
+slowLength = input.int(21, "EMA chậm", minval=2, maxval=200)
+showSignals = input.bool(true, "Hiện tín hiệu mua/bán")
+showBarColors = input.bool(true, "Tô màu nến")
+showBackground = input.bool(true, "Tô nền theo xu hướng")
+showAltCandles = input.bool(false, "Hiện bộ nến phụ")
+riskPercent = input.float(1.0, "Khối lượng lệnh (hợp đồng)", minval=1, maxval=10, step=1)
+
+// === INDICATORS + PLOTS ===
+emaFast = ta.ema(close, fastLength)
+emaSlow = ta.ema(close, slowLength)
+plotFast = plot(emaFast, "EMA nhanh", color=color.aqua, linewidth=2, offset=1)
+plotSlow = plot(emaSlow, "EMA chậm", color=color.orange, linewidth=2)
+fill(plotFast, plotSlow, color=emaFast >= emaSlow ? color.new(color.green, 82) : color.new(color.red, 82), title="Vùng xu hướng")
+
+// Horizontal level and plot styles
+hline(1800, "Mốc kiểm tra hline", color=color.gray, linestyle=hline.style_dotted, linewidth=1)
+plot(ta.sma(close, 10), "SMA dạng bậc", color=color.fuchsia, linewidth=2, style=plot.style_stepline)
+plot(ta.rsi(close, 14), "RSI - kiểm tra plot", color=color.yellow, display=display.none)
+
+// === BAR VISUALS ===
+trendUp = emaFast >= emaSlow
+if showBackground
+    bgcolor(trendUp ? color.new(color.green, 94) : color.new(color.red, 94))
+if showBarColors
+    barcolor(trendUp ? color.new(color.green, 0) : color.new(color.red, 0))
+plotshape(showSignals and ta.crossover(emaFast, emaSlow), title="BUY shape", style=shape.triangleup, location=location.belowbar, color=color.lime, text="BUY", textcolor=color.black, size=size.small)
+plotshape(showSignals and ta.crossunder(emaFast, emaSlow), title="SELL shape", style=shape.triangledown, location=location.abovebar, color=color.red, text="SELL", textcolor=color.white, size=size.small)
+plotchar(barstate.islast, title="Last bar char", char="◆", location=location.top, color=color.yellow)
+plotarrow(ta.change(close), title="Hướng biến động", colorup=color.green, colordown=color.red, minheight=3, maxheight=12)
+plotcandle(showAltCandles ? open : na, showAltCandles ? high : na, showAltCandles ? low : na, showAltCandles ? close : na, title="Nến phụ", color=color.new(color.blue, 65), wickcolor=color.blue, bordercolor=color.blue)
+
+// === STRATEGY TESTER ===
+if ta.crossover(emaFast, emaSlow)
+    strategy.entry("LONG", strategy.long, qty=riskPercent)
+if ta.crossunder(emaFast, emaSlow)
+    strategy.close("LONG")
+
+// === DRAWING OBJECTS (last bar only) ===
+var line trendLine = na
+var box rangeBox = na
+var label infoLabel = na
+if barstate.islast
+    line.delete(trendLine)
+    box.delete(rangeBox)
+    label.delete(infoLabel)
+    trendLine := line.new(bar_index - 15, emaFast[15], bar_index, emaFast, color=color.aqua, width=2, extend=extend.right)
+    rangeBox := box.new(bar_index - 10, ta.highest(high, 10), bar_index, ta.lowest(low, 10), border_color=color.orange, bgcolor=color.new(color.orange, 90))
+    infoLabel := label.new(bar_index, high, "OpenCharts Pine OK", style=label.style_label_down, color=color.blue, textcolor=color.white)
+
+// === TABLE ===
+var table stats = table.new(position.top_right, 2, 3, border_width=1)
+if barstate.islast
+    table.cell(stats, 0, 0, "Pine test", bgcolor=color.navy, text_color=color.white)
+    table.cell(stats, 1, 0, "PASS?", bgcolor=color.navy, text_color=color.white)
+    table.cell(stats, 0, 1, "EMA / Fill / Offset")
+    table.cell(stats, 1, 1, "Check chart")
+    table.cell(stats, 0, 2, "Strategy points")
+    table.cell(stats, 1, 2, str.tostring(strategy.netprofit))
