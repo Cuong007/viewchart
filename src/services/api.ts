@@ -1,4 +1,5 @@
 import { getAdapter } from "../adapter/registry.ts";
+import { safeStorage } from "../lib/safe-storage.ts";
 import type { OrderModification, PositionModification } from "../adapter/types.ts";
 import { uid } from "../lib/uid.ts";
 import type { DrawingLine } from "../pages/trading/constants.ts";
