@@ -229,7 +229,11 @@ export function PineScriptEditor({ candles, onExecution }: PineScriptEditorProps
     setInputValues(current => ({ ...current, [meta.id]: value }));
   };
   const renderInput = (meta: PineInputMeta) => {
-    const value = inputValues[meta.id] ?? meta.defval;
+    const savedValue = inputValues[meta.id];
+    const value = (meta.type === "timeframe" || meta.type === "string" || meta.type === "source" || meta.type === "symbol" || meta.type === "session")
+      ? (typeof savedValue === "string" ? savedValue : (typeof meta.defval === "string" ? meta.defval : ""))
+      : meta.type === "bool" ? (typeof savedValue === "boolean" ? savedValue : Boolean(meta.defval))
+      : savedValue ?? meta.defval;
     const title = meta.title || meta.name;
     const common = "w-full min-w-0 rounded border border-border bg-background px-2 py-1.5 text-xs outline-none focus:border-primary";
     if (meta.type === "bool") return <label key={meta.id} className="flex items-center gap-2 py-1"><input type="checkbox" checked={Boolean(value)} onChange={e=>updateInput(meta,e.target.checked)} /><span>{title}</span></label>;

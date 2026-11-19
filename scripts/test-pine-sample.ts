@@ -48,6 +48,19 @@ if (paneResult.plots.length !== 1 || paneResult.plots[0].overlay) {
 const inputs = getPineInputs(source);
 if (inputs.length < 5) throw new Error(`Expected Pine inputs to be detected; got ${inputs.length}`);
 
+const timeframeInputSource = `
+//@version=5
+indicator("Timeframe input regression", overlay=true)
+tfInput = input.timeframe("D", "Timeframe")
+plot(close, "Close")
+`;
+const timeframeMeta = getPineInputs(timeframeInputSource).find(input => input.varId === "tfInput" || input.title === "Timeframe");
+if (!timeframeMeta) throw new Error("Pine timeframe input metadata was not detected");
+const staleTimeframeResult = await executePineScript(timeframeInputSource, candles, { [timeframeMeta.id]: true });
+if (!staleTimeframeResult.plots.length) throw new Error("A stale boolean timeframe override should fall back to its string default");
+const customTimeframeResult = await executePineScript(timeframeInputSource, candles, { [timeframeMeta.id]: "60" });
+if (!customTimeframeResult.plots.length) throw new Error("A string timeframe override should execute");
+
 const result = await executePineScript(source, candles);
 if (result.kind !== "strategy") throw new Error("Sample must be detected as a strategy");
 if (result.plots.length < 3) throw new Error(`Expected visible plots; got ${result.plots.length}`);
