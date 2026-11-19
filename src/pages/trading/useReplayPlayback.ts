@@ -4,24 +4,17 @@ import { useReplaySession } from "../../services/queries.ts";
 import { api } from "../../services/api.ts";
 import { TF_INTERVAL_MS, type Timeframe } from "./constants.ts";
 
-/** How often to push replayCursorTimestamp to the Zustand store (ms). */
 const STORE_SYNC_MS = 100;
-
-/** How often to PATCH the server with the current cursor position (ms). */
 const SERVER_SYNC_MS = 2000;
-
 type TickBar = { t: number; o: number; h: number; l: number; c: number; v: number };
-
 type MutableRef<T> = { current: T };
 
-/** Throttled store write (drives scrubber + HUD timestamp). */
 function syncCursorToStore(now: number, lastSyncRef: MutableRef<number>, cursorMs: number): void {
   if (now - lastSyncRef.current < STORE_SYNC_MS) return;
   useTradingStore.setState({ replayCursorTimestamp: cursorMs });
   lastSyncRef.current = now;
 }
 
-/** Throttled server PATCH so the cursor survives a reload. */
 function syncCursorToServer(
   now: number,
   lastSyncRef: MutableRef<number>,
@@ -31,27 +24,25 @@ function syncCursorToServer(
 ): void {
   if (now - lastSyncRef.current < SERVER_SYNC_MS || !sessionDate) return;
   lastSyncRef.current = now;
-  api
-    .replayPatchSession(accountId, { sessionDate, cursorTimestamp: cursorMs })
-    .catch(() => null);
+  api.replayPatchSession(accountId, { sessionDate, cursorTimestamp: cursorMs }).catch(() => null);
 }
 
+/** Build one replay stop per complete visible chart candle, skipping gaps in market data. */
+function buildPlaybackTimes(bars: TickBar[], intervalMs: number): number[] {
+  const lastBarByBucket = new Map<number, number>();
+  for (const bar of bars) {
+    const bucket = Math.floor(bar.t / intervalMs) * intervalMs;
+    lastBarByBucket.set(bucket, bar.t);
+  }
+  return [...lastBarByBucket.values()];
+}
 
-/**
- * Drives the client-side replay clock using requestAnimationFrame.
- *
- * - Advances one candle per second at 1x; speed controls candles per second.
- * - Throttles Zustand writes and debounces server cursor persistence.
- * - Detects external seeks by comparing store cursor to local cursor ref.
- * - Never auto-stops at the final market candle; it follows the wall clock.
- */
 export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
   const isReplaying = useTradingStore((s) => s.isReplaying);
   const replayPaused = useTradingStore((s) => s.replayPaused);
   const replaySpeed = useTradingStore((s) => s.replaySpeed);
   const replayCursorTimestamp = useTradingStore((s) => s.replayCursorTimestamp);
   const replaySessionDate = useTradingStore((s) => s.replaySessionDate);
-
   const selectedSymbol = useTradingStore((s) => s.selectedSymbol);
   const { data: sessionData } = useReplaySession(
     isReplaying ? accountId : null,
@@ -59,11 +50,11 @@ export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
     selectedSymbol,
   );
 
-  // ── Stable refs (no re-render on change) ────────────────
   const speedRef = useRef(replaySpeed);
   const timeframeRef = useRef(timeframe);
   const sessionDateRef = useRef(replaySessionDate);
   const playbackBarsRef = useRef<TickBar[]>([]);
+  const playbackTimesRef = useRef<number[]>([]);
   const cursorIndexRef = useRef(0);
   const stepAccumulatorRef = useRef(0);
   const localCursorMsRef = useRef<number | null>(null);
@@ -73,149 +64,138 @@ export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
   const rafIdRef = useRef<number | null>(null);
   const isActiveRef = useRef(false);
 
-  // Keep speed + sessionDate refs current without restarting the loop
-  useEffect(() => {
-    speedRef.current = replaySpeed;
-  }, [replaySpeed]);
+  useEffect(() => { speedRef.current = replaySpeed; }, [replaySpeed]);
   useEffect(() => {
     timeframeRef.current = timeframe;
     stepAccumulatorRef.current = 0;
   }, [timeframe]);
-  useEffect(() => {
-    sessionDateRef.current = replaySessionDate;
-  }, [replaySessionDate]);
+  useEffect(() => { sessionDateRef.current = replaySessionDate; }, [replaySessionDate]);
 
-  // Reset playback position whenever a replay session (re)starts.
   useEffect(() => {
-    if (isReplaying) {
+    if (!isReplaying) {
       localCursorMsRef.current = null;
       cursorIndexRef.current = 0;
       stepAccumulatorRef.current = 0;
+      playbackBarsRef.current = [];
+      playbackTimesRef.current = [];
+      return;
     }
+    localCursorMsRef.current = null;
+    cursorIndexRef.current = 0;
+    stepAccumulatorRef.current = 0;
   }, [isReplaying]);
 
-  // Replay advances on raw 1-minute bars, regardless of the chart timeframe.
-  // Keep the current cursor stable while polling appends new bars.
+  // Refresh the available candle sequence without advancing by wall-clock time.
   useEffect(() => {
     const nextBuffer = sessionData?.tickBuffer;
     if (!nextBuffer?.length) return;
     const previousCursor = localCursorMsRef.current ?? useTradingStore.getState().replayCursorTimestamp;
     playbackBarsRef.current = nextBuffer;
+    const times = buildPlaybackTimes(nextBuffer, TF_INTERVAL_MS[timeframeRef.current] ?? 60_000);
+    playbackTimesRef.current = times;
     if (previousCursor != null) {
       let idx = 0;
-      while (idx < nextBuffer.length && (nextBuffer[idx]?.t ?? Infinity) <= previousCursor) idx++;
+      while (idx < times.length && times[idx]! <= previousCursor) idx++;
       cursorIndexRef.current = Math.max(0, idx - 1);
-      // Keep the time cursor even when it is temporarily ahead of the newest
-      // downloaded candle. Polling will fill the gap without rewinding playback.
     } else {
-      cursorIndexRef.current = Math.min(30, nextBuffer.length - 1);
-      localCursorMsRef.current = nextBuffer[cursorIndexRef.current]?.t ?? null;
+      cursorIndexRef.current = Math.min(30, Math.max(0, times.length - 1));
+      localCursorMsRef.current = times[cursorIndexRef.current] ?? null;
+      if (localCursorMsRef.current != null) {
+        useTradingStore.setState({ replayCursorTimestamp: localCursorMsRef.current });
+      }
     }
     stepAccumulatorRef.current = 0;
-  }, [sessionData]);
+  }, [sessionData, timeframe]);
 
-  // Detect external seeks: if the store cursor diverges from our local cursor
-  // by more than 1s, accept the new position and recompute the tick index.
+  // Keep the index aligned after a scrubber seek or a timeframe change.
   useEffect(() => {
     if (replayCursorTimestamp == null) return;
-    const local = localCursorMsRef.current;
-    if (local == null || Math.abs(replayCursorTimestamp - local) > 1000) {
+    const times = playbackTimesRef.current;
+    if (!times.length) return;
+    if (localCursorMsRef.current == null || Math.abs(replayCursorTimestamp - localCursorMsRef.current) > 1000) {
       localCursorMsRef.current = replayCursorTimestamp;
-      // Recompute tick index after seek
-      const buf = playbackBarsRef.current;
       let idx = 0;
-      while (idx < buf.length && (buf[idx]?.t ?? Infinity) <= replayCursorTimestamp) idx++;
+      while (idx < times.length && times[idx]! <= replayCursorTimestamp) idx++;
       cursorIndexRef.current = Math.max(0, idx - 1);
       stepAccumulatorRef.current = 0;
     }
   }, [replayCursorTimestamp]);
 
-  // ── rAF playback loop ────────────────────────────────────
+  // TradingView-style single-bar stepping. Step buttons work while paused.
+  useEffect(() => {
+    const onStep = (event: Event) => {
+      const direction = (event as CustomEvent<"forward" | "backward">).detail;
+      const times = playbackTimesRef.current;
+      if (!isReplaying || !times.length || (direction !== "forward" && direction !== "backward")) return;
+      const nextIndex = Math.max(0, Math.min(times.length - 1, cursorIndexRef.current + (direction === "forward" ? 1 : -1)));
+      cursorIndexRef.current = nextIndex;
+      const nextCursor = times[nextIndex]!;
+      localCursorMsRef.current = nextCursor;
+      stepAccumulatorRef.current = 0;
+      useTradingStore.setState({ replayPaused: true, replayCursorTimestamp: nextCursor });
+      const now = performance.now();
+      syncCursorToServer(now, lastServerSyncRef, accountId, sessionDateRef.current, nextCursor);
+    };
+    window.addEventListener("opencharts-replay-step", onStep);
+    return () => window.removeEventListener("opencharts-replay-step", onStep);
+  }, [accountId, isReplaying]);
+
+  // Play advances through actual available candles; overnight/weekend gaps are skipped.
   useEffect(() => {
     if (!isReplaying || replayPaused) {
       isActiveRef.current = false;
-      if (rafIdRef.current !== null) {
-        cancelAnimationFrame(rafIdRef.current);
-        rafIdRef.current = null;
-      }
+      if (rafIdRef.current !== null) cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
       lastFrameTimeRef.current = null;
       return;
     }
 
     isActiveRef.current = true;
     lastFrameTimeRef.current = null;
-
-    // One playback step; returns false when the loop must stop scheduling.
-    const step = (now: number): boolean => {
-      // Bootstrap frame time on first tick after play/resume
-      if (lastFrameTimeRef.current === null) {
+    const step = (now: number) => {
+      if (lastFrameTimeRef.current == null) {
         lastFrameTimeRef.current = now;
-        return true;
+        return;
       }
-
-      // Advance one visible chart candle per second at 1x. Source data remains
-      // 1m, while the replay clock follows the selected chart timeframe.
-      const realDeltaMs = Math.min(now - lastFrameTimeRef.current, 100);
+      const delta = Math.min(now - lastFrameTimeRef.current, 100);
       lastFrameTimeRef.current = now;
-      const buf = playbackBarsRef.current;
-      if (buf.length === 0) return true;
-
-      if (localCursorMsRef.current == null) {
-        cursorIndexRef.current = Math.max(0, cursorIndexRef.current);
-        localCursorMsRef.current = buf[cursorIndexRef.current]?.t ?? buf[0]!.t;
-      }
-      stepAccumulatorRef.current += (realDeltaMs / 1000) * Math.max(0.1, speedRef.current);
+      const times = playbackTimesRef.current;
+      if (!times.length) return;
+      stepAccumulatorRef.current += (delta / 1000) * Math.max(0.1, speedRef.current);
       const steps = Math.floor(stepAccumulatorRef.current);
-      if (steps > 0) {
-        const currentCursor = localCursorMsRef.current ?? buf[0]!.t;
-        const intervalMs = TF_INTERVAL_MS[timeframeRef.current] ?? 60_000;
-        // Replay may start on any historical date, but its clock is never
-        // bounded by that day's final candle. It advances continuously until
-        // it catches the real wall clock, then follows "now" without stopping
-        // or switching back to realtime mode.
-        localCursorMsRef.current = Math.min(
-          currentCursor + steps * intervalMs,
-          Date.now(),
-        );
-        stepAccumulatorRef.current -= steps;
+      if (steps <= 0) return;
+      stepAccumulatorRef.current -= steps;
+      const nextIndex = Math.min(times.length - 1, cursorIndexRef.current + steps);
+      if (nextIndex !== cursorIndexRef.current) {
+        cursorIndexRef.current = nextIndex;
+        const nextCursor = times[nextIndex]!;
+        localCursorMsRef.current = nextCursor;
+        syncCursorToStore(now, lastStoreSyncRef, nextCursor);
+        syncCursorToServer(now, lastServerSyncRef, accountId, sessionDateRef.current, nextCursor);
       }
-      const newCursorMs = Math.min(localCursorMsRef.current ?? buf[0]!.t, Date.now());
-      localCursorMsRef.current = newCursorMs;
-      // Keep the chart index aligned to the latest bar at or before the clock,
-      // while allowing the clock itself to move ahead of a delayed data feed.
-      let nextIndex = 0;
-      while (nextIndex < buf.length && (buf[nextIndex]?.t ?? Infinity) <= newCursorMs) nextIndex++;
-      cursorIndexRef.current = Math.max(0, nextIndex - 1);
-      syncCursorToStore(now, lastStoreSyncRef, newCursorMs);
-      syncCursorToServer(now, lastServerSyncRef, accountId, sessionDateRef.current, newCursorMs);
-
-      // Intentionally no end-of-session stop condition. Replay stays active
-      // after the historical market close and remains pinned to current time
-      // once it catches up, rather than reverting to the live chart.
-      return true;
+      // At the last available candle, remain paused at that candle rather than
+      // waiting for the real clock or silently switching back to live mode.
+      if (nextIndex >= times.length - 1) {
+        useTradingStore.setState({ replayPaused: true, replayCursorTimestamp: times[nextIndex]! });
+        return;
+      }
     };
 
     const frame = (now: number) => {
       if (!isActiveRef.current) return;
-      if (step(now)) rafIdRef.current = requestAnimationFrame(frame);
+      step(now);
+      if (isActiveRef.current) rafIdRef.current = requestAnimationFrame(frame);
     };
-
     rafIdRef.current = requestAnimationFrame(frame);
-
-    return () => {
-      isActiveRef.current = false;
-      if (rafIdRef.current !== null) {
-        cancelAnimationFrame(rafIdRef.current);
-        rafIdRef.current = null;
-      }
-    };
-  }, [isReplaying, replayPaused, accountId]);
-
-  // Cleanup on unmount
-  useEffect(() => {
     return () => {
       isActiveRef.current = false;
       if (rafIdRef.current !== null) cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
     };
+  }, [isReplaying, replayPaused, accountId]);
+
+  useEffect(() => () => {
+    isActiveRef.current = false;
+    if (rafIdRef.current !== null) cancelAnimationFrame(rafIdRef.current);
   }, []);
 }
