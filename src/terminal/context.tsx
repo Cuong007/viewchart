@@ -317,28 +317,33 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
   }, [chartKey]);
 
   const { data: candles = [] } = useCandles(selectedSymbol, timeframe, candleLimit, replayVersion);
-  const { replayCandles, replayTradeEvents } = useReplayChartData(activeAccountId, timeframe);
+  const { replayCandles, replayTradeEvents, replayPrice } = useReplayChartData(activeAccountId, timeframe);
   useReplayPlayback(activeAccountId ?? "", timeframe);
 
   const { data: positions = [] } = usePositions(activeAccountId);
   const { data: orders = [] } = useOrders(activeAccountId);
-  // Replay's candle close is authoritative for the position mark and floating P&L.
-  const replayMark = isReplaying && replayCandles?.length
-    ? replayCandles[replayCandles.length - 1]!.close
+  // The raw 1m replay price, not the aggregated chart candle or live tick,
+  // is the single source of truth for position marks and floating P&L.
+  const replayMark = isReplaying && replayPrice != null && Number.isFinite(replayPrice) && replayPrice > 0
+    ? replayPrice
     : null;
+  const normalizeSymbol = (value: string) => value.toUpperCase().replace(/[^A-Z0-9]/g, "");
   const displayPositions = useMemo(() => {
-    if (replayMark == null || !Number.isFinite(replayMark) || replayMark <= 0) return positions;
+    if (replayMark == null) return positions;
+    const replaySymbolKey = normalizeSymbol(selectedSymbol);
     return positions.map((position) => {
-      if (position.symbolName !== selectedSymbol) return position;
+      if (normalizeSymbol(position.symbolName) !== replaySymbolKey) return position;
       const direction = ["LONG", "BUY"].includes(String(position.side).toUpperCase()) ? 1 : -1;
-      const contractSize = position.contractSize ?? 1;
+      const contractSize = position.contractSize ?? symbols.find((item) =>
+        normalizeSymbol(item.name) === replaySymbolKey
+      )?.contractSize ?? 1;
       return {
         ...position,
         currentPrice: replayMark,
         unrealizedPnl: (replayMark - position.entryPrice) * position.quantity * contractSize * direction,
       };
     });
-  }, [positions, replayMark, selectedSymbol]);
+  }, [positions, replayMark, selectedSymbol, symbols]);
   const positionPnl = useMemo(
     () => displayPositions.reduce((sum, position) => sum + (position.unrealizedPnl || 0), 0),
     [displayPositions],
@@ -447,8 +452,8 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
   const liveCandle = liveCandleUpdates[chartKey];
   const liveTick = ticks[selectedSymbol];
   const replayBar = isReplaying && replayCandles?.length ? replayCandles[replayCandles.length - 1] : null;
-  const tick = replayBar
-    ? { bid: replayBar.close, ask: replayBar.close, timestamp: replayBar.time * 1000 }
+  const tick = replayMark != null
+    ? { bid: replayMark, ask: replayMark, timestamp: useTradingStore.getState().replayCursorTimestamp ?? Date.now() }
     : liveTick;
   const symbolInfo = symbols.find((s) => s.name === selectedSymbol) as Symbol | undefined;
   const pipDigits = useMemo(
