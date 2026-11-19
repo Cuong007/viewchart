@@ -42,6 +42,7 @@ jobs:
             src/lib/pine-script-runtime.ts \
             src/pages/trading/PineScriptEditor.tsx \
             src/pages/trading/usePinePlots.ts \
+            examples/pine-scripts/opencharts-feature-test.pine \
             src/pages/trading/useReplayPlayback.ts \
             src/pages/trading/useReplayChartData.ts \
             src/services/replay.ts \
