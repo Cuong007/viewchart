@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Play, Pause, Square } from "lucide-react";
+import { Play, Pause, Square, StepBack, StepForward } from "lucide-react";
 import { cn, toLocalDateString } from "../../lib/utils.ts";
 import { useTradingStore } from "../../services/store.tsx";
 import { api } from "../../services/api.ts";
@@ -84,6 +84,25 @@ export function ReplayHUD({ accountId }: { accountId: string }) {
         >
           <Pause className="h-3.5 w-3.5 fill-current" />
         </button>
+      )}
+
+      {isReplaying && (
+        <>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("opencharts-replay-step", { detail: "backward" }))}
+            title="Previous candle"
+            className="p-0.5 rounded hover:bg-orange-500/20 text-orange-500"
+          >
+            <StepBack className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("opencharts-replay-step", { detail: "forward" }))}
+            title="Next candle"
+            className="p-0.5 rounded hover:bg-orange-500/20 text-orange-500"
+          >
+            <StepForward className="h-3.5 w-3.5" />
+          </button>
+        </>
       )}
 
       {isReplaying && (
