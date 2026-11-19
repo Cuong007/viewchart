@@ -49,12 +49,12 @@ let session: SessionState | null = null;
 /** Symbol to play back when the caller does not name one. */
 const DEFAULT_SYMBOL = "BTCUSD";
 
-/** One year of 1m bars is 525,600; retain a little headroom for leap years. */
-const SESSION_BAR_LIMIT = 600_000;
-/** Binance silently caps every kline request at 1,000 rows; stay below that. */
-const CHUNK_BAR_LIMIT = 900;
-/** Cache completed historical chunks across 15s replay-session refreshes. */
-const completedChunkCache = new Map<string, Promise<Awaited<ReturnType<ReturnType<typeof getAdapter>["marketData"]["getCandles"]>>>>();
+/** Keep enough 1m bars to cover a full year of intraday sessions. */
+const SESSION_BAR_LIMIT = 150_000;
+/** A single request per calendar day avoids provider caps on wide date ranges. */
+const DAY_BAR_LIMIT = 2_000;
+/** Completed historical days are immutable; cache them across 15s replay refreshes. */
+const completedDayCache = new Map<string, Promise<Awaited<ReturnType<ReturnType<typeof getAdapter>["marketData"]["getCandles"]>>>>();
 
 /**
  * Bars revealed before playback begins. Starting exactly at the first bar
@@ -103,49 +103,33 @@ export async function getSession(
     }
   }
 
-  // Split every calendar day into <=900-minute windows. The Binance adapter
-  // (and several other feeds) hard-caps a single request at 1,000 candles,
-  // regardless of the requested limit. A full-day 1m request therefore used
-  // to return only 00:00..16:39; 5m aggregation then ended at 16:35.
-  const requestRanges: Array<{ day: string; fromMs: number; toMs: number }> = [];
-  const chunkMs = CHUNK_BAR_LIMIT * 60_000;
-  for (const day of dayRanges) {
-    for (let fromMs = day.fromMs; fromMs < day.toMs; fromMs += chunkMs) {
-      requestRanges.push({
-        day: day.day,
-        fromMs,
-        toMs: Math.min(fromMs + chunkMs, day.toMs),
-      });
-    }
-  }
-
   const dayBars: Awaited<ReturnType<typeof adapter.marketData.getCandles>> = [];
-  // Bounded concurrency; cache each completed chunk, but refresh the currently
-  // forming chunk so the replay picks up newly completed candles every poll.
-  for (let offset = 0; offset < requestRanges.length; offset += 8) {
-    const batch = requestRanges.slice(offset, offset + 8);
+  // Limit concurrency to avoid flooding a broker/data gateway when replaying
+  // several months. Past days are cached; only today's partial day is refreshed.
+  for (let offset = 0; offset < dayRanges.length; offset += 6) {
+    const batch = dayRanges.slice(offset, offset + 6);
     const results = await Promise.all(batch.map(async (range) => {
-      const cacheKey = `${symbol}:1m:${range.day}:${range.fromMs}`;
-      const isComplete = range.toMs <= Date.now() - 60_000;
-      if (isComplete) {
-        let pending = completedChunkCache.get(cacheKey);
+      const cacheKey = `${symbol}:1m:${range.day}`;
+      const isCurrentDay = range.toMs >= endMs - 1;
+      if (!isCurrentDay) {
+        let pending = completedDayCache.get(cacheKey);
         if (!pending) {
           pending = adapter.marketData.getCandles({
             symbol,
             timeframe: "1m",
-            limit: CHUNK_BAR_LIMIT,
+            limit: DAY_BAR_LIMIT,
             fromMs: range.fromMs,
             toMs: range.toMs,
           });
-          completedChunkCache.set(cacheKey, pending);
-          pending.catch(() => completedChunkCache.delete(cacheKey));
+          completedDayCache.set(cacheKey, pending);
+          pending.catch(() => completedDayCache.delete(cacheKey));
         }
         return pending;
       }
       return adapter.marketData.getCandles({
         symbol,
         timeframe: "1m",
-        limit: CHUNK_BAR_LIMIT,
+        limit: DAY_BAR_LIMIT,
         fromMs: range.fromMs,
         toMs: range.toMs,
       });
@@ -160,7 +144,7 @@ export async function getSession(
   }
   const bars = [...uniqueBars.values()]
     .sort((a, b) => a.time - b.time)
-    .slice(-SESSION_BAR_LIMIT);
+    .slice(0, SESSION_BAR_LIMIT);
 
   const tickBuffer = bars.map((c) => ({
     t: c.time * 1000,
