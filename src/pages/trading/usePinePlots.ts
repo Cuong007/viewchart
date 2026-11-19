@@ -24,6 +24,9 @@ export function usePinePlots(
     seriesRef.current = [];
     if (!chart || !candleSeries || !container || !execution || chartData.length === 0) return;
 
+    const indexByTime = new Map<number,number>();
+    chartData.forEach((bar,index)=>indexByTime.set(Number(bar.time),index));
+
     for (const plot of execution.plots) {
       const style = plot.type.replace(/^style_/, "");
       if (["shape","char","background","barcolor","bar","candle"].includes(style)) continue;
@@ -73,8 +76,6 @@ export function usePinePlots(
     const timeScale = chart.timeScale();
     const candleByTime = new Map<number,Candle>();
     candles.forEach(c=>candleByTime.set(Number(c.time),c));
-    const indexByTime = new Map<number,number>();
-    chartData.forEach((bar,index)=>indexByTime.set(Number(bar.time),index));
     const xAt = (time:number):number|null => timeScale.timeToCoordinate(time as Time);
     const drawingX = (value:number,xloc:string):number|null => {
       if(xloc.toLowerCase().includes("time")||xloc==="bt") return xAt(value>1e12?Math.floor(value/1000):value);
