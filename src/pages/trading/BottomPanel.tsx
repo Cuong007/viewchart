@@ -461,7 +461,6 @@ export function BottomPanel({
           {loadedJournalSnapshot && <div className="px-2 py-1 text-[10px] text-warning">Đang chỉnh sửa bản nhật ký đã tải · bấm “Lưu thay đổi” để cập nhật bản lưu.</div>}
           <div className="flex-1 min-h-0">
           <TradeJournalPanel
-            key={"journal-" + (loadedJournalSnapshot !== null ? "snapshot" : String(journalSessionStart))}
             entries={loadedJournalSnapshot ?? visibleJournalEntries}
             isLoading={journalLoading}
             readOnly={false}
