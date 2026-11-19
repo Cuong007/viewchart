@@ -45,6 +45,7 @@ jobs:
             src/terminal/context.tsx \
             src/terminal/use-terminal.ts \
             src/pages/trading/ReplayHUD.tsx \
+            src/pages/trading/ReplayScrubber.tsx \
             src/services/demo/instruments.ts \
             src/services/demo/feed.ts \
             src/services/demo/engine.ts \
