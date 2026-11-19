@@ -3,8 +3,7 @@ import { Play, Loader2, AlertCircle, CheckCircle2, Settings2, FileCode2 } from "
 import pineFeatureTest from "../../../examples/pine-scripts/opencharts-feature-test.pine?raw";
 import type { Candle } from "../../services/schemas.ts";
 import { safeStorage } from "../../lib/safe-storage.ts";
-import type { PineExecutionResult, PineInputMeta } from "../../lib/pine-script-runtime.ts";
-import { executePineScriptInWorker, getPineInputsInWorker } from "../../lib/pine-script-worker-client.ts";
+import { executePineScript, getPineInputs, type PineExecutionResult, type PineInputMeta } from "../../lib/pine-script-runtime.ts";
 
 const STORAGE_KEY = "opencharts_pine_script_source_v1";
 const DEFAULT_SOURCE = `//@version=5
@@ -39,17 +38,16 @@ export function PineScriptEditor({ candles, onExecution }: PineScriptEditorProps
   useEffect(() => {
     if (inspectTimer.current) clearTimeout(inspectTimer.current);
     inspectTimer.current = setTimeout(() => {
-      void getPineInputsInWorker(code).then(meta => {
-        setInputMeta(meta);
-        setInputValues(Object.fromEntries(meta.map(item => [item.id, item.defval])));
-      }).catch(cause => setError(cause instanceof Error ? cause.message : String(cause)));
+      const meta = getPineInputs(code);
+      setInputMeta(meta);
+      setInputValues(Object.fromEntries(meta.map(item => [item.id, item.defval])));
     }, 350);
     return () => { if (inspectTimer.current) clearTimeout(inspectTimer.current); };
   }, [code]);
   const runSource = async (source: string, automatic = false, overrides: Record<string, unknown> = inputValues) => {
     if (!automatic) { setRunning(true); setError(""); }
     try {
-      const next = await executePineScriptInWorker(source, candles, overrides);
+      const next = await executePineScript(source, candles, overrides);
       setResult(next); onExecution(next); safeStorage.setItem(STORAGE_KEY, source);
       lastFingerprint.current = fingerprint();
       if (!automatic) { setAppliedCode(source); setAppliedInputs({ ...overrides }); }
