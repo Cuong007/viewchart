@@ -27,10 +27,16 @@ if (result.plots.some(plot => plot.title === "RSI ẩn" || plot.title === "Secur
 
 const raw = Object.values(result.rawPlots) as Array<{ options?: { style?: string } }>;
 const styles = new Set(raw.map(plot => String(plot.options?.style ?? "")));
-console.log("Pine raw styles:", [...styles].sort());
-console.log("Pine normalized plots:", result.plots.map(plot => ({ id: plot.id, title: plot.title, type: plot.type, points: plot.data.length })));
 for (const required of ["fill", "hline", "shape", "char", "background", "barcolor", "candle"]) {
   if (!styles.has(required)) throw new Error(`Pine feature not emitted: ${required}`);
+}
+
+// PineTS intentionally serializes plotarrow() as style "shape", with the
+// direction stored in each point as shape_arrow_up / shape_arrow_down.
+const arrowRaw = (result.rawPlots as Record<string, any>)["Hướng biến động"];
+const arrowDirections = (arrowRaw?.data ?? []).map((point: any) => point?.options?.shape);
+if (!arrowRaw || arrowRaw.options?.style !== "shape" || !arrowDirections.some((shape: unknown) => shape === "shape_arrow_up" || shape === "shape_arrow_down")) {
+  throw new Error("plotarrow() must emit directional shape markers");
 }
 if (result.summary.totalTrades < 1) throw new Error("Strategy sample did not produce any closed trades");
 
