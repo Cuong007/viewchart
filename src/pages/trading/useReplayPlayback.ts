@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { useTradingStore } from "../../services/store.tsx";
 import { useReplaySession } from "../../services/queries.ts";
 import { api } from "../../services/api.ts";
-import type { Timeframe } from "./constants.ts";
+import { TF_INTERVAL_MS, type Timeframe } from "./constants.ts";
 
 /** How often to push replayCursorTimestamp to the Zustand store (ms). */
 const STORE_SYNC_MS = 100;
@@ -61,7 +61,7 @@ function finishReplay(accountId: string, sessionDate: string | null, endMs: numb
  * - Detects external seeks by comparing store cursor to local cursor ref.
  * - Auto-stops and emits "stopped" when the cursor reaches the end of the buffer.
  */
-export function useReplayPlayback(accountId: string, _timeframe: Timeframe) {
+export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
   const isReplaying = useTradingStore((s) => s.isReplaying);
   const replayPaused = useTradingStore((s) => s.replayPaused);
   const replaySpeed = useTradingStore((s) => s.replaySpeed);
@@ -77,6 +77,7 @@ export function useReplayPlayback(accountId: string, _timeframe: Timeframe) {
 
   // ── Stable refs (no re-render on change) ────────────────
   const speedRef = useRef(replaySpeed);
+  const timeframeRef = useRef(timeframe);
   const sessionDateRef = useRef(replaySessionDate);
   const tickBufferRef = useRef<TickBar[]>([]);
   const playbackBarsRef = useRef<TickBar[]>([]);
@@ -93,6 +94,10 @@ export function useReplayPlayback(accountId: string, _timeframe: Timeframe) {
   useEffect(() => {
     speedRef.current = replaySpeed;
   }, [replaySpeed]);
+  useEffect(() => {
+    timeframeRef.current = timeframe;
+    stepAccumulatorRef.current = 0;
+  }, [timeframe]);
   useEffect(() => {
     sessionDateRef.current = replaySessionDate;
   }, [replaySessionDate]);
@@ -168,9 +173,8 @@ export function useReplayPlayback(accountId: string, _timeframe: Timeframe) {
         return true;
       }
 
-      // Replay time advances by one market minute per second at 1x. Unlike an
-      // index-based clock, it keeps moving while the newest 1m candle is being
-      // fetched, so the progress bar cannot freeze at the current buffer edge.
+      // Advance one visible chart candle per second at 1x. Source data remains
+      // 1m, while the replay clock follows the selected chart timeframe.
       const realDeltaMs = Math.min(now - lastFrameTimeRef.current, 100);
       lastFrameTimeRef.current = now;
       const buf = playbackBarsRef.current;
@@ -184,7 +188,8 @@ export function useReplayPlayback(accountId: string, _timeframe: Timeframe) {
       const steps = Math.floor(stepAccumulatorRef.current);
       if (steps > 0) {
         const currentCursor = localCursorMsRef.current ?? buf[0]!.t;
-        localCursorMsRef.current = currentCursor + steps * 60_000;
+        const intervalMs = TF_INTERVAL_MS[timeframeRef.current] ?? 60_000;
+        localCursorMsRef.current = currentCursor + steps * intervalMs;
         stepAccumulatorRef.current -= steps;
       }
       const newCursorMs = localCursorMsRef.current ?? buf[0]!.t;
@@ -199,12 +204,10 @@ export function useReplayPlayback(accountId: string, _timeframe: Timeframe) {
       const today = localDateString(Date.now());
       const isCurrentDay = sessionDateRef.current === today;
       const lastBarMs = tickBufferRef.current[tickBufferRef.current.length - 1]?.t ?? buf[buf.length - 1]?.t ?? 0;
-      const targetMs = isCurrentDay
-        ? Math.floor(Date.now() / 60_000) * 60_000
-        : lastBarMs;
+      const targetMs = isCurrentDay ? Date.now() : lastBarMs;
       if (newCursorMs >= targetMs && targetMs > 0) {
         isActiveRef.current = false;
-        finishReplay(accountId, sessionDateRef.current, newCursorMs);
+        finishReplay(accountId, sessionDateRef.current, targetMs);
         return false;
       }
       return true;
