@@ -57,26 +57,33 @@ function trading() {
 // storage driver so an integrator can keep them with the user's account.
 
 async function readJSON<T>(key: string, fallback: T): Promise<T> {
-  const storage = getAdapter().storage;
-  if (!storage) return fallback;
+  // Device storage is the guaranteed fallback even when an adapter omits its
+  // own driver or its remote/device driver is temporarily unavailable.
   try {
-    const raw = await storage.get(key);
-    if (raw == null) return fallback;
-    const parsed: unknown = JSON.parse(raw);
-    return (parsed ?? fallback) as T;
+    const storage = getAdapter().storage;
+    const raw = storage ? await storage.get(key) : null;
+    if (raw != null) {
+      const parsed: unknown = JSON.parse(raw);
+      return (parsed ?? fallback) as T;
+    }
   } catch {
-    return fallback;
+    // Fall through to local device storage.
   }
+  const local = safeStorage.getItem(key);
+  if (local == null) return fallback;
+  try { return (JSON.parse(local) ?? fallback) as T; } catch { return fallback; }
 }
 
 async function writeJSON(key: string, value: unknown): Promise<void> {
-  const storage = getAdapter().storage;
-  if (!storage) return;
+  const serialized = JSON.stringify(value);
+  // Always write locally first: journal entries must survive an app restart
+  // even if the adapter storage is absent or rejects its write.
+  safeStorage.setItem(key, serialized);
   try {
-    await storage.set(key, JSON.stringify(value));
+    const storage = getAdapter().storage;
+    if (storage) await storage.set(key, serialized);
   } catch {
-    // A full or unavailable store must not break the interaction that
-    // triggered the write; the value simply does not persist.
+    // Local device copy remains available if adapter persistence fails.
   }
 }
 
