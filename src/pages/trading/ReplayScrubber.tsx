@@ -23,8 +23,10 @@ export function ReplayScrubber({ accountId }: { accountId: string }) {
   const sessionDate = replaySessionDate;
 
   const startMs = tickBuffer[0]?.t ?? null;
-  // Replay range ends at the final available candle, not the current wall clock.
-  const endMs = tickBuffer[tickBuffer.length - 1]?.t ?? null;
+  // The selected replay date is only the starting point. The timeline
+  // always extends to the current wall clock, even when the selected day is
+  // months old or its feed ended at the market close.
+  const endMs = Date.now();
   const rangeMs = startMs != null && endMs != null ? Math.max(0, endMs - startMs) : 0;
 
   const thumbPct =

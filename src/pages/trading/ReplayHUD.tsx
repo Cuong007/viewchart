@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Play, Pause, Square, StepBack, StepForward } from "lucide-react";
+import { Play, Pause, Square } from "lucide-react";
 import { cn, toLocalDateString } from "../../lib/utils.ts";
 import { useTradingStore } from "../../services/store.tsx";
 import { api } from "../../services/api.ts";
@@ -8,8 +8,17 @@ import { safeSession } from "../../lib/safe-storage.ts";
 const SPEED_OPTIONS = [0.5, 1, 2, 5, 10] as const;
 type Speed = (typeof SPEED_OPTIONS)[number];
 
+function formatReplayTime(epochMs: number): string {
+  return new Date(epochMs).toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
+
 export function ReplayHUD({ accountId }: { accountId: string }) {
-  const { isReplaying, replayPaused, replaySpeed, selectedSymbol, setReplaySessionDate } =
+  const { isReplaying, replayPaused, replaySpeed, replayCursorTimestamp, selectedSymbol, setReplaySessionDate } =
     useTradingStore();
 
   const storageKey = `replay_session_date_${accountId}`;
@@ -58,7 +67,13 @@ export function ReplayHUD({ accountId }: { accountId: string }) {
           max={toLocalDateString()}
           className="text-[11px] bg-transparent border border-border rounded px-1 py-0 text-foreground w-[7.5rem] tabular-nums"
         />
-      ) : null}
+      ) : (
+        replayCursorTimestamp != null && (
+          <span className="text-[11px] font-mono text-orange-400 tabular-nums">
+            {formatReplayTime(replayCursorTimestamp)}
+          </span>
+        )
+      )}
 
       {!isReplaying ? (
         <button
@@ -87,21 +102,6 @@ export function ReplayHUD({ accountId }: { accountId: string }) {
       )}
 
       {isReplaying && (
-        <>
-        <button
-          onClick={() => window.dispatchEvent(new CustomEvent("opencharts-replay-step", { detail: "backward" }))}
-          title="Previous candle"
-          className="p-0.5 rounded hover:bg-orange-500/20 text-orange-500"
-        >
-          <StepBack className="h-3.5 w-3.5" />
-        </button>
-        <button
-          onClick={() => window.dispatchEvent(new CustomEvent("opencharts-replay-step", { detail: "forward" }))}
-          title="Next candle"
-          className="p-0.5 rounded hover:bg-orange-500/20 text-orange-500"
-        >
-          <StepForward className="h-3.5 w-3.5" />
-        </button>
         <button
           onClick={handleStop}
           title="Stop Replay"
@@ -109,7 +109,6 @@ export function ReplayHUD({ accountId }: { accountId: string }) {
         >
           <Square className="h-3.5 w-3.5 fill-current" />
         </button>
-        </>
       )}
 
       <div className="flex items-center gap-0.5">
