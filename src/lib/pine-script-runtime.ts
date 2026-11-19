@@ -3,13 +3,13 @@ import type { Candle } from "../services/schemas.ts";
 
 export type PineProgramKind = "indicator" | "strategy";
 export interface PinePlotPoint { time: number; value: number; color?: string; }
-export interface PinePlot { id: string; title: string; type: string; color?: string; data: PinePlotPoint[]; }
+export interface PinePlot { id: string; title: string; type: string; color?: string; overlay: boolean; options: Record<string, any>; data: PinePlotPoint[]; }
 export interface PineTrade {
   id: string; side: "LONG" | "SHORT"; quantity: number; entryPrice: number; exitPrice: number;
   entryTime: number; exitTime: number; pnlPoints: number; isOpen: boolean;
 }
 export interface PineExecutionResult {
-  kind: PineProgramKind; title: string; version: number; plots: PinePlot[]; trades: PineTrade[];
+  kind: PineProgramKind; title: string; version: number; plots: PinePlot[]; rawPlots: Record<string, any>; trades: PineTrade[];
   summary: { totalTrades: number; winningTrades: number; losingTrades: number; winRate: number; totalPoints: number; averagePoints: number; };
   warnings: string[];
 }
@@ -26,15 +26,25 @@ function candleToPineData(candle: Candle) {
 }
 function normalizePlots(rawPlots: unknown): PinePlot[] {
   if (!rawPlots || typeof rawPlots !== "object") return [];
-  return Object.entries(rawPlots as Record<string, any>).map(([id, raw]) => {
-    const values = Array.isArray(raw?.data) ? raw.data : Array.isArray(raw) ? raw : [];
-    const data: PinePlotPoint[] = values.flatMap((point: any) => {
-      const time = Number(point?.time ?? point?.timestamp); const value = Number(point?.value);
-      if (!Number.isFinite(time) || !Number.isFinite(value)) return [];
-      return [{ time: time > 1e12 ? Math.floor(time / 1000) : time, value, ...(typeof point?.color === "string" ? { color: point.color } : {}) }];
-    });
-    return { id, title: String(raw?.title ?? raw?.options?.title ?? id), type: String(raw?.type ?? raw?.options?.style ?? "line"), color: typeof raw?.color === "string" ? raw.color : typeof raw?.options?.color === "string" ? raw.options.color : undefined, data };
-  }).filter(plot => plot.data.length > 0);
+  return Object.entries(rawPlots as Record<string, any>)
+    .filter(([id]) => !id.startsWith("__"))
+    .map(([id, raw]) => {
+      const values = Array.isArray(raw?.data) ? raw.data : [];
+      const data: PinePlotPoint[] = values.flatMap((point: any) => {
+        const time = Number(point?.time ?? point?.timestamp);
+        const value = Number(point?.value);
+        if (!Number.isFinite(time) || !Number.isFinite(value)) return [];
+        return [{ time: time > 1e12 ? Math.floor(time / 1000) : time, value,
+          ...(typeof point?.options?.color === "string" ? { color: point.options.color } : {}) }];
+      });
+      const options = raw?.options && typeof raw.options === "object" ? raw.options : {};
+      return {
+        id, title: String(raw?.title ?? options.title ?? id),
+        type: String(options.style ?? raw?.type ?? "line"),
+        color: typeof options.color === "string" ? options.color : "#2962ff",
+        overlay: options.overlay !== false, options, data,
+      };
+    }).filter(plot => plot.data.length > 0);
 }
 export async function executePineScript(code: string, candles: Candle[]): Promise<PineExecutionResult> {
   const program = detectPineProgram(code);
@@ -63,7 +73,7 @@ export async function executePineScript(code: string, candles: Candle[]): Promis
   const wins = closedTrades.filter(trade => trade.pnlPoints > 0).length;
   const totalPoints = closedTrades.reduce((sum, trade) => sum + trade.pnlPoints, 0);
   return {
-    ...program, plots: normalizePlots((context as any)?.plots), trades,
+    ...program, plots: normalizePlots((context as any)?.plots), rawPlots: (context as any)?.plots ?? {}, trades,
     summary: { totalTrades: closedTrades.length, winningTrades: wins, losingTrades: closedTrades.filter(trade => trade.pnlPoints < 0).length, winRate: closedTrades.length ? wins / closedTrades.length * 100 : 0, totalPoints, averagePoints: closedTrades.length ? totalPoints / closedTrades.length : 0 },
     warnings: Array.isArray((context as any)?.warnings) ? (context as any).warnings.map((warning: any) => String(warning?.message ?? warning)) : [],
   };
