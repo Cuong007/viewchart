@@ -56,7 +56,7 @@ function finishReplay(accountId: string, sessionDate: string | null, endMs: numb
  * - Detects external seeks by comparing store cursor to local cursor ref.
  * - Auto-stops and emits "stopped" when the cursor reaches the end of the buffer.
  */
-export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
+export function useReplayPlayback(accountId: string, _timeframe: Timeframe) {
   const isReplaying = useTradingStore((s) => s.isReplaying);
   const replayPaused = useTradingStore((s) => s.replayPaused);
   const replaySpeed = useTradingStore((s) => s.replaySpeed);
