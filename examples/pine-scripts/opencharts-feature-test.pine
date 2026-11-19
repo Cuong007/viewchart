@@ -18,7 +18,6 @@ plotSlow = plot(emaSlow, "EMA chậm", color=color.orange, linewidth=2)
 fill(plotFast, plotSlow, color=emaFast >= emaSlow ? color.new(color.green, 82) : color.new(color.red, 82), title="Vùng xu hướng")
 
 // Hline and stepped plot
-hline(1800, "Mốc kiểm tra hline", color=color.gray, linestyle=hline.style_dotted, linewidth=1)
 plot(ta.sma(close, 10), "SMA dạng bậc", color=color.fuchsia, linewidth=2, style=plot.style_stepline)
 plot(ta.rsi(close, 14), "RSI ẩn", color=color.yellow, display=display.none)
 sameTimeframeClose = request.security(syminfo.tickerid, timeframe.period, close)
