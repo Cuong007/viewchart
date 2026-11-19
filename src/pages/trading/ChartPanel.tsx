@@ -1694,6 +1694,8 @@ export function ChartPanel({
     chartRef.current = chart;
 
     const candleSeries = chart.addCandlestickSeries({
+      // Pine EMA/SMA overlays explicitly share this price scale.
+      priceScaleId: "right",
       upColor: colors.up,
       downColor: colors.down,
       borderUpColor: colors.up,
