@@ -88,6 +88,49 @@ export function usePinePlots(
       if(canvas.width!==Math.round(width*dpr)||canvas.height!==Math.round(height*dpr)){canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);}
       ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);
       const rightEdge=Math.min(width,timeScale.width());
+
+      // fill(plot1, plot2): shade the area between two Pine plot/hline series.
+      // PineTS stores fill() as its own plot entry and keeps the source plot keys
+      // plus the per-bar fill color in options.
+      const valueAt = (key:string, time:number):number|null => {
+        const source=execution.rawPlots[key];
+        if(!Array.isArray(source?.data))return null;
+        const point=source.data.find((item:AnyRecord)=>rawTime(item.time)===time);
+        const value=Number(point?.value);
+        return Number.isFinite(value)?value:null;
+      };
+      for(const [fillId,fill] of Object.entries(execution.rawPlots) as [string,AnyRecord][]){
+        if(fillId.startsWith("__")||fill?.options?.style!=="fill"||!Array.isArray(fill.data))continue;
+        const firstKey=String(fill.plot1??fill.options.plot1??"");
+        const secondKey=String(fill.plot2??fill.options.plot2??"");
+        if(!firstKey||!secondKey)continue;
+        const first=execution.rawPlots[firstKey],second=execution.rawPlots[secondKey];
+        if(!Array.isArray(first?.data)||!Array.isArray(second?.data))continue;
+        const times=[...new Set<number>(first.data.map((p:AnyRecord)=>rawTime(p.time)).filter((t:number)=>Number.isFinite(t)))].sort((a,b)=>a-b);
+        for(let index=0;index<times.length-1;index++){
+          const t1=times[index]!,t2=times[index+1]!;
+          const a1=valueAt(firstKey,t1),b1=valueAt(secondKey,t1),a2=valueAt(firstKey,t2),b2=valueAt(secondKey,t2);
+          if(a1===null||b1===null||a2===null||b2===null)continue;
+          const x1=xAt(t1),x2=xAt(t2),ay1=priceY(a1),by1=priceY(b1),ay2=priceY(a2),by2=priceY(b2);
+          if(x1===null||x2===null||ay1===null||by1===null||ay2===null||by2===null)continue;
+          const fillPoint=fill.data.find((p:AnyRecord)=>rawTime(p.time)===t1);
+          const opts=fillPoint?.options??{};
+          ctx.save();
+          if(fill.options.gradient){
+            const top=Number(opts.top_value),bottom=Number(opts.bottom_value);
+            const topY=priceY(Number.isFinite(top)?top:Math.max(a1,b1));
+            const bottomY=priceY(Number.isFinite(bottom)?bottom:Math.min(a1,b1));
+            const gradient=ctx.createLinearGradient(0,topY??Math.min(ay1,by1),0,bottomY??Math.max(ay1,by1));
+            gradient.addColorStop(0,colorOr(opts.top_color,"rgba(41,98,255,0.35)"));
+            gradient.addColorStop(1,colorOr(opts.bottom_color,"rgba(41,98,255,0.05)"));
+            ctx.fillStyle=gradient;
+          }else{
+            ctx.fillStyle=colorOr(opts.color,colorOr(fill.options.color,"rgba(41,98,255,0.18)"));
+          }
+          ctx.beginPath();ctx.moveTo(x1,ay1);ctx.lineTo(x2,ay2);ctx.lineTo(x2,by2);ctx.lineTo(x1,by1);ctx.closePath();ctx.fill();
+          ctx.restore();
+        }
+      }
       const rawTime=(time:unknown)=>{const n=Number(time);return n>1e12?Math.floor(n/1000):n;};
       const nextX=(time:number,x:number)=>{const i=indexByTime.get(time);return i===undefined||i>=chartData.length-1?x+8:(xAt(Number(chartData[i+1]!.time))??x+8);};
 
