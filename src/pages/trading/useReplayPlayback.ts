@@ -73,7 +73,6 @@ export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
   // ── Stable refs (no re-render on change) ────────────────
   const speedRef = useRef(replaySpeed);
   const sessionDateRef = useRef(replaySessionDate);
-  const previousTimeframeRef = useRef(timeframe);
   const tickBufferRef = useRef<TickBar[]>([]);
   const playbackBarsRef = useRef<TickBar[]>([]);
   const cursorIndexRef = useRef(0);
@@ -84,8 +83,6 @@ export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
   const lastServerSyncRef = useRef(0);
   const rafIdRef = useRef<number | null>(null);
   const isActiveRef = useRef(false);
-  const latestBufferEndRef = useRef<number | null>(null);
-  const lastBufferGrowthAtRef = useRef(0);
 
   // Keep speed + sessionDate refs current without restarting the loop
   useEffect(() => {
