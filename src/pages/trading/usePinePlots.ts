@@ -113,12 +113,19 @@ export function usePinePlots(
       // fill(plot1, plot2): shade the area between two Pine plot/hline series.
       // PineTS stores fill() as its own plot entry and keeps the source plot keys
       // plus the per-bar fill color in options.
+      const seriesValues = new Map<string,Map<number,number>>();
       const valueAt = (key:string, time:number):number|null => {
-        const source=execution.rawPlots[key];
-        if(!Array.isArray(source?.data))return null;
-        const point=source.data.find((item:AnyRecord)=>rawTime(item.time)===time);
-        const value=Number(point?.value);
-        return Number.isFinite(value)?value:null;
+        let values=seriesValues.get(key);
+        if(!values){
+          values=new Map<number,number>();
+          const source=execution.rawPlots[key];
+          if(Array.isArray(source?.data))for(const point of source.data){
+            const value=Number(point?.value),timeKey=rawTime(point.time);
+            if(Number.isFinite(value)&&Number.isFinite(timeKey))values.set(timeKey,value);
+          }
+          seriesValues.set(key,values);
+        }
+        return values.get(time)??null;
       };
       for(const [fillId,fill] of Object.entries(execution.rawPlots) as [string,AnyRecord][]){
         if(fillId.startsWith("__")||fill?.options?.style!=="fill"||!Array.isArray(fill.data))continue;
