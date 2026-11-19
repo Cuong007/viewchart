@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Play, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import type { Candle } from "../../services/schemas.ts";
 import { safeStorage } from "../../lib/safe-storage.ts";
