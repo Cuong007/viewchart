@@ -96,11 +96,7 @@ export function TradingPage() {
   const [showIndicatorMenu, setShowIndicatorMenu] = useState(false);
   const [bottomTab, setBottomTab] = useState<
     "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators" | "indicator-code" | "data-sources"
-  >(() => {
-    const saved = safeStorage.getItem("opencharts_bottom_tab");
-    const valid = ["positions", "orders", "history", "journal", "calendar", "news", "indicators", "indicator-code", "data-sources"];
-    return valid.includes(saved ?? "") ? saved as "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators" | "indicator-code" | "data-sources" : "positions";
-  });
+  >("positions");
   const [indicatorCodeOverrides, setIndicatorCodeOverrides] = useState<Partial<Record<IndicatorType, string>>>(() => {
     try { return JSON.parse(safeStorage.getItem("opencharts_indicator_code") || "{}"); } catch { return {}; }
   });
@@ -147,11 +143,8 @@ export function TradingPage() {
   };
   const [rightPanel, setRightPanel] = useState<
     "order" | "dom" | "watchlist" | "news" | "tv-analysis"
-  >(() => {
-    const saved = safeStorage.getItem("opencharts_right_panel");
-    return saved === "order" || saved === "dom" || saved === "watchlist" || saved === "news" || saved === "tv-analysis" ? saved : "order";
-  });
-  const [showRightPanel, setShowRightPanel] = useState(() => safeStorage.getItem("opencharts_show_right_panel") !== "false");
+  >("order");
+  const [showRightPanel, setShowRightPanel] = useState(true);
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
 
@@ -160,31 +153,6 @@ export function TradingPage() {
     const saved = safeStorage.getItem("bottomPanelHeight");
     return saved ? parseInt(saved, 10) : 220;
   });
-  // Persist the current workspace continuously and flush on Android app background/close.
-  useEffect(() => {
-    const saveWorkspace = () => {
-      safeStorage.setJSON("opencharts_workspace_v1", {
-        selectedSymbol: useTradingStore.getState().selectedSymbol,
-        timeframe,
-        bottomTab,
-        rightPanel,
-        showRightPanel,
-        bottomPanelHeight,
-      });
-      safeStorage.setItem("opencharts_bottom_tab", bottomTab);
-      safeStorage.setItem("opencharts_right_panel", rightPanel);
-      safeStorage.setItem("opencharts_show_right_panel", String(showRightPanel));
-      safeStorage.setItem("bottomPanelHeight", String(bottomPanelHeight));
-    };
-    saveWorkspace();
-    window.addEventListener("pagehide", saveWorkspace);
-    document.addEventListener("visibilitychange", saveWorkspace);
-    return () => {
-      window.removeEventListener("pagehide", saveWorkspace);
-      document.removeEventListener("visibilitychange", saveWorkspace);
-    };
-  }, [timeframe, bottomTab, rightPanel, showRightPanel, bottomPanelHeight]);
-
   const resizingRef = useRef(false);
   const resizeStartY = useRef(0);
   const resizeStartH = useRef(0);
