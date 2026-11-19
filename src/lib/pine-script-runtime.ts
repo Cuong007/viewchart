@@ -77,7 +77,11 @@ export async function executePineScript(code: string, candles: Candle[], inputOv
   if (candles.length < 2) throw new Error("Không đủ dữ liệu nến để chạy Pine Script.");
   const source = candles.map(candleToPineData).filter(bar => Number.isFinite(bar.openTime) && Number.isFinite(bar.open) && Number.isFinite(bar.high) && Number.isFinite(bar.low) && Number.isFinite(bar.close));
   if (!source.length) throw new Error("Dữ liệu OHLCV không hợp lệ.");
-  const chartTimeframe = inferPineTimeframe(candles);\n  // PineTS needs the chart timeframe in its Context for timeframe.period and\n  // request.security(..., timeframe.period, ...). Passing only OHLCV leaves it\n  // empty, causing security() to receive an undefined timeframe.\n  const runtime = new PineTS(source, undefined, chartTimeframe);
+  const chartTimeframe = inferPineTimeframe(candles);
+  // PineTS needs the chart timeframe in its Context for timeframe.period and
+  // request.security(..., timeframe.period, ...). Passing only OHLCV leaves it
+  // empty, causing security() to receive an undefined timeframe.
+  const runtime = new PineTS(source, undefined, chartTimeframe);
   const indicator = new Indicator(code);
   for (const meta of indicator.getInputsMeta()) {
     if (Object.prototype.hasOwnProperty.call(inputOverrides, meta.id)) indicator.input[meta.id] = inputOverrides[meta.id];
