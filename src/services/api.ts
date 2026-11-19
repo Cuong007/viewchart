@@ -1,5 +1,4 @@
 import { getAdapter } from "../adapter/registry.ts";
-import { safeStorage } from "../lib/safe-storage.ts";
 import type { OrderModification, PositionModification } from "../adapter/types.ts";
 import { uid } from "../lib/uid.ts";
 import type { DrawingLine } from "../pages/trading/constants.ts";
@@ -58,33 +57,26 @@ function trading() {
 // storage driver so an integrator can keep them with the user's account.
 
 async function readJSON<T>(key: string, fallback: T): Promise<T> {
-  // Device storage is the guaranteed fallback even when an adapter omits its
-  // own driver or its remote/device driver is temporarily unavailable.
+  const storage = getAdapter().storage;
+  if (!storage) return fallback;
   try {
-    const storage = getAdapter().storage;
-    const raw = storage ? await storage.get(key) : null;
-    if (raw != null) {
-      const parsed: unknown = JSON.parse(raw);
-      return (parsed ?? fallback) as T;
-    }
+    const raw = await storage.get(key);
+    if (raw == null) return fallback;
+    const parsed: unknown = JSON.parse(raw);
+    return (parsed ?? fallback) as T;
   } catch {
-    // Fall through to local device storage.
+    return fallback;
   }
-  const local = safeStorage.getItem(key);
-  if (local == null) return fallback;
-  try { return (JSON.parse(local) ?? fallback) as T; } catch { return fallback; }
 }
 
 async function writeJSON(key: string, value: unknown): Promise<void> {
-  const serialized = JSON.stringify(value);
-  // Always write locally first: journal entries must survive an app restart
-  // even if the adapter storage is absent or rejects its write.
-  safeStorage.setItem(key, serialized);
+  const storage = getAdapter().storage;
+  if (!storage) return;
   try {
-    const storage = getAdapter().storage;
-    if (storage) await storage.set(key, serialized);
+    await storage.set(key, JSON.stringify(value));
   } catch {
-    // Local device copy remains available if adapter persistence fails.
+    // A full or unavailable store must not break the interaction that
+    // triggered the write; the value simply does not persist.
   }
 }
 
