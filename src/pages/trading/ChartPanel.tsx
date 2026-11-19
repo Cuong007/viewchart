@@ -76,6 +76,19 @@ import {
   toUnixSeconds,
 } from "./utils.ts";
 
+function formatCrosshairDate(time: Time): string {
+  const date = typeof time === "number"
+    ? new Date(time * 1000)
+    : typeof time === "string"
+      ? new Date(time)
+      : new Date(Date.UTC(time.year, time.month - 1, time.day));
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0").replace(/[0-9]/g, (digit) => "𝟎𝟏𝟐𝟑𝟒𝟓𝟔𝟕𝟖𝟗"[Number(digit)]!);
+  const year = date.getFullYear();
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return day + "/" + month + "/" + year + " " + hours + ":" + minutes;
+}
 // ── Staleness recovery ─────────────────────────────────────────────────────
 // Shared by the live-candle and tick-smoothing effects so either path can
 // trigger a REST refetch when the chart falls more than 1.5 intervals behind
@@ -1569,6 +1582,10 @@ export function ChartPanel({
     const minMove = getMinMove(pipDigits);
 
     const chart = createChart(containerRef.current, {
+      localization: {
+        timeFormatter: formatCrosshairDate,
+        dateFormat: "dd/MM/yyyy",
+      },
       layout: {
         background: { type: ColorType.Solid, color: colors.background },
         textColor: colors.text,
