@@ -31,7 +31,7 @@ barcolor(showBarColors ? (trendUp ? color.green : color.red) : na)
 plotshape(showSignals and ta.crossover(emaFast, emaSlow), title="BUY shape", style=shape.triangleup, location=location.belowbar, color=color.lime, text="BUY", textcolor=color.black, size=size.small)
 plotshape(showSignals and ta.crossunder(emaFast, emaSlow), title="SELL shape", style=shape.triangledown, location=location.abovebar, color=color.red, text="SELL", textcolor=color.white, size=size.small)
 plotchar(barstate.islast, title="Last bar char", char="◆", location=location.top, color=color.yellow)
-plotarrow(ta.change(close), title="Hướng biến động", colorup=color.green, colordown=color.red, minheight=3, maxheight=12)
+plotarrow(ta.crossover(emaFast, emaSlow) ? 1 : ta.crossunder(emaFast, emaSlow) ? -1 : na, title="Hướng biến động", colorup=color.green, colordown=color.red, minheight=3, maxheight=12)
 plotcandle(showAltCandles ? open : na, showAltCandles ? high : na, showAltCandles ? low : na, showAltCandles ? close : na, title="Nến phụ", color=color.new(color.blue, 65), wickcolor=color.blue, bordercolor=color.blue)
 
 // === STRATEGY TESTER ===
