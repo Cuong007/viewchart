@@ -33,19 +33,24 @@ export function PineScriptEditor({ candles, onExecution }: PineScriptEditorProps
   const runSequence = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inspectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inspectSequence = useRef(0);
   const fingerprint = () => {
     const first = candles[0]; const last = candles[candles.length - 1];
     return [candles.length, first?.time, last?.time, last?.open, last?.high, last?.low, last?.close, last?.volume].join(":");
   };
   useEffect(() => {
+    const sequence = ++inspectSequence.current;
     if (inspectTimer.current) clearTimeout(inspectTimer.current);
     inspectTimer.current = setTimeout(() => {
       void getPineInputsInWorker(code).then(meta => {
+        if (sequence !== inspectSequence.current) return;
         setInputMeta(meta);
         setInputValues(Object.fromEntries(meta.map(item => [item.id, item.defval])));
-      }).catch(cause => setError(cause instanceof Error ? cause.message : String(cause)));
+      }).catch(cause => {
+        if (sequence === inspectSequence.current) setError(cause instanceof Error ? cause.message : String(cause));
+      });
     }, 350);
-    return () => { if (inspectTimer.current) clearTimeout(inspectTimer.current); };
+    return () => { if (inspectTimer.current) clearTimeout(inspectTimer.current); inspectSequence.current++; };
   }, [code]);
   const runSource = async (source: string, automatic = false, overrides: Record<string, unknown> = inputValues) => {
     const sequence = ++runSequence.current;
