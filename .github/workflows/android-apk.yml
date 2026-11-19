@@ -40,6 +40,8 @@ jobs:
             src/pages/trading/useIndicators.ts \
             src/lib/indicators.ts \
             src/lib/pine-script-runtime.ts \
+            src/lib/pine-script-worker-client.ts \
+            src/lib/pine-script.worker.ts \
             src/pages/trading/PineScriptEditor.tsx \
             src/pages/trading/usePinePlots.ts \
             examples/pine-scripts/opencharts-feature-test.pine \
