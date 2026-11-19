@@ -204,7 +204,12 @@ export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
       const today = localDateString(Date.now());
       const isCurrentDay = sessionDateRef.current === today;
       const lastBarMs = tickBufferRef.current[tickBufferRef.current.length - 1]?.t ?? buf[buf.length - 1]?.t ?? 0;
-      const targetMs = isCurrentDay ? Date.now() : lastBarMs;
+      // Historical market-data feeds commonly stop recording at the final
+      // session candle (e.g. 16:39). The replay clock must not stop at that
+      // candle: preserve a one-hour replay tail so the selected session runs
+      // through 17:39. Today's replay remains live and ends at wall-clock now.
+      const historicalEndMs = lastBarMs > 0 ? lastBarMs + 60 * 60 * 1000 : 0;
+      const targetMs = isCurrentDay ? Date.now() : historicalEndMs;
       if (newCursorMs >= targetMs && targetMs > 0) {
         isActiveRef.current = false;
         finishReplay(accountId, sessionDateRef.current, targetMs);
