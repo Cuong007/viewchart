@@ -120,6 +120,63 @@ export function usePinePlots(
       ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,width,height);
       const rightEdge = plotWidth();
 
+      // bgcolor(), barcolor(), plotbar(), plotcandle() are bar-aligned visuals.
+      const rawTimeToSeconds = (time: unknown) => {
+        const value = Number(time);
+        return value > 1e12 ? Math.floor(value / 1000) : value;
+      };
+      const nextX = (time: number, fallback: number) => {
+        const index = indexByTime.get(time);
+        if (index === undefined || index >= chartData.length - 1) return fallback + 8;
+        return xAt(Number(chartData[index + 1]!.time)) ?? fallback + 8;
+      };
+      for (const [plotId, rawPlot] of Object.entries(execution.rawPlots)) {
+        if (plotId.startsWith("__") || !Array.isArray(rawPlot?.data)) continue;
+        const style = String(rawPlot?.options?.style ?? "");
+        if (!["background", "barcolor", "bar", "candle"].includes(style)) continue;
+        for (const point of rawPlot.data as AnyRecord[]) {
+          const time = rawTimeToSeconds(point.time);
+          const x = xAt(time);
+          if (x === null) continue;
+          const x2 = nextX(time, x);
+          const width = Math.max(2, Math.min(12, Math.abs(x2 - x) * 0.65));
+          const options = point.options ?? {};
+          if (style === "background") {
+            if (point.value) {
+              ctx.save(); ctx.fillStyle = colorOr(options.color, "rgba(41,98,255,0.12)");
+              ctx.fillRect(x, 0, Math.max(1, x2 - x), height); ctx.restore();
+            }
+            continue;
+          }
+          const bar = candleByTime.get(time);
+          if (style === "barcolor") {
+            if (!point.value || !bar) continue;
+            const yHigh=priceY(bar.high), yLow=priceY(bar.low), yOpen=priceY(bar.open), yClose=priceY(bar.close);
+            if(yHigh===null||yLow===null||yOpen===null||yClose===null) continue;
+            const color=colorOr(options.color,"#2962ff");
+            ctx.save();ctx.strokeStyle=color;ctx.fillStyle=color;ctx.lineWidth=1;
+            ctx.beginPath();ctx.moveTo(x,yHigh);ctx.lineTo(x,yLow);ctx.stroke();
+            ctx.fillRect(x-width/2,Math.min(yOpen,yClose),width,Math.max(1,Math.abs(yClose-yOpen)));ctx.restore();
+            continue;
+          }
+          if (!Array.isArray(point.value) || point.value.length < 4) continue;
+          const [open, high, low, close] = point.value.map(Number);
+          const yHigh=priceY(high), yLow=priceY(low), yOpen=priceY(open), yClose=priceY(close);
+          if(yHigh===null||yLow===null||yOpen===null||yClose===null) continue;
+          const rising=close>=open;
+          const color=colorOr(options.color,rising?"#26a69a":"#ef5350");
+          ctx.save();ctx.strokeStyle=color;ctx.fillStyle=color;ctx.lineWidth=1;
+          ctx.beginPath();ctx.moveTo(x,yHigh);ctx.lineTo(x,yLow);ctx.stroke();
+          if(style==="bar"){
+            ctx.beginPath();ctx.moveTo(x-width/2,yOpen);ctx.lineTo(x,yOpen);ctx.moveTo(x,yClose);ctx.lineTo(x+width/2,yClose);ctx.stroke();
+          } else {
+            ctx.fillRect(x-width/2,Math.min(yOpen,yClose),width,Math.max(1,Math.abs(yClose-yOpen)));
+            ctx.strokeStyle=colorOr(options.bordercolor,color);ctx.strokeRect(x-width/2,Math.min(yOpen,yClose),width,Math.max(1,Math.abs(yClose-yOpen)));
+          }
+          ctx.restore();
+        }
+      }
+
       // plotshape(), plotchar(), plotarrow()
       for (const plot of execution.plots) {
         const style = plot.type.replace(/^style_/, "");
