@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Play, Loader2, AlertCircle, CheckCircle2, Settings2, FileCode2, Plus, Pencil, Trash2, Eye, EyeOff, Save, X, List, SlidersHorizontal } from "lucide-react";
+import { Play, Loader2, AlertCircle, CheckCircle2, FileCode2, Plus, Pencil, Trash2, Eye, EyeOff, Save, List, SlidersHorizontal } from "lucide-react";
 import pineFeatureTest from "../../../examples/pine-scripts/opencharts-feature-test.pine?raw";
 import type { Candle } from "../../services/schemas.ts";
 import { safeStorage } from "../../lib/safe-storage.ts";
@@ -59,7 +59,6 @@ function combineExecutions(items: Array<{ id: string; result: PineExecutionResul
   const closed = strategies.reduce((sum, item) => sum + item.result.summary.totalTrades, 0);
   const wins = strategies.reduce((sum, item) => sum + item.result.summary.winningTrades, 0);
   const totalPoints = strategies.reduce((sum, item) => sum + item.result.summary.totalPoints, 0);
-  const first = items[0]!.result;
   return {
     kind: strategies.length ? "strategy" : "indicator",
     title: items.map(item => item.result.title).join(" + "),
