@@ -39,6 +39,7 @@ jobs:
             src/pages/trading/ChartPanel.tsx \
             src/pages/trading/useIndicators.ts \
             src/lib/indicators.ts \
+            src/lib/pine-script-runtime.ts \
             src/pages/trading/useReplayPlayback.ts \
             src/pages/trading/useReplayChartData.ts \
             src/services/replay.ts \
@@ -105,6 +106,7 @@ jobs:
           npm install @capacitor/core @capacitor/android
           npm install --save-dev @capacitor/cli
           npm install mqtt --save
+          npm install pinets@0.13.1 --save
           npm pkg set name="viewchart-android"
           npm pkg set scripts.android:sync="cap sync android"
           npm pkg set scripts.android:open="cap open android"
