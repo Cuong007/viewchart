@@ -95,7 +95,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "fancy-canvas": "^2.1.0",
-    "lightweight-charts": "^4.2.0",
+    "lightweight-charts": "^5.3.0",
     "lucide-react": "^0.575.0",
     "mqtt": "^5.16.1",
     "pinets": "^0.13.1",
