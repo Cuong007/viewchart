@@ -452,7 +452,7 @@ export function BottomPanel({
         {tab === "history" && <TradeHistoryTable accountId={accountId} />}
         {tab === "journal" && (
           <div className="flex flex-col h-full">
-          <SnapshotToolbar<JournalEntry[]> storageKey={"opencharts_trade_journal_snapshots_" + (accountId || "none")} data={journalEntries} onLoad={setLoadedJournalSnapshot} label="nhật ký giao dịch" getData={async () => { if (!accountId) return []; const all: JournalEntry[] = []; for (let offset = 0; ; offset += 100) { const result = await api.getJournalEntries(accountId, { limit: 100, offset }); all.push(...(result.entries || [])); if (!result.entries || result.entries.length < 100) break; } return all; }}/>
+          <SnapshotToolbar<JournalEntry[]> storageKey={"opencharts_trade_journal_snapshots_" + (accountId || "none")} data={journalEntries} onLoad={setLoadedJournalSnapshot} label="nhật ký giao dịch" getData={async () => { if (!accountId) return []; const result = await api.getJournalEntries(accountId); return result.entries || []; }}/>
           {loadedJournalSnapshot && <div className="px-2 py-1 text-[10px] text-warning">Đang xem bản nhật ký đã tải · chế độ chỉ đọc.</div>}
           <div className="flex-1 min-h-0">
           <TradeJournalPanel
