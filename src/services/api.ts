@@ -1,4 +1,5 @@
 import { getAdapter } from "../adapter/registry.ts";
+import { safeStorage } from "../lib/safe-storage.ts";
 import type { OrderModification, PositionModification } from "../adapter/types.ts";
 import { uid } from "../lib/uid.ts";
 import type { DrawingLine } from "../pages/trading/constants.ts";
@@ -57,27 +58,23 @@ function trading() {
 // storage driver so an integrator can keep them with the user's account.
 
 async function readJSON<T>(key: string, fallback: T): Promise<T> {
-  const storage = getAdapter().storage;
-  if (!storage) return fallback;
   try {
-    const raw = await storage.get(key);
-    if (raw == null) return fallback;
-    const parsed: unknown = JSON.parse(raw);
-    return (parsed ?? fallback) as T;
-  } catch {
-    return fallback;
-  }
+    const storage = getAdapter().storage;
+    const raw = storage ? await storage.get(key) : null;
+    if (raw != null) return (JSON.parse(raw) ?? fallback) as T;
+  } catch { /* fall back to device storage */ }
+  const local = safeStorage.getItem(key);
+  if (local == null) return fallback;
+  try { return (JSON.parse(local) ?? fallback) as T; } catch { return fallback; }
 }
 
 async function writeJSON(key: string, value: unknown): Promise<void> {
-  const storage = getAdapter().storage;
-  if (!storage) return;
+  const serialized = JSON.stringify(value);
+  safeStorage.setItem(key, serialized);
   try {
-    await storage.set(key, JSON.stringify(value));
-  } catch {
-    // A full or unavailable store must not break the interaction that
-    // triggered the write; the value simply does not persist.
-  }
+    const storage = getAdapter().storage;
+    if (storage) await storage.set(key, serialized);
+  } catch { /* local device copy remains available */ }
 }
 
 const DRAW_KEY = (symbol: string) => `oc_drawings_${symbol}`;
