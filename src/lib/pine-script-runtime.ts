@@ -1,4 +1,4 @@
-import { Indicator, PineTS } from "pinets";
+import { PineTS } from "pinets";
 import type { Candle } from "../services/schemas.ts";
 
 export type PineProgramKind = "indicator" | "strategy";
@@ -7,10 +7,6 @@ export interface PinePlot { id: string; title: string; type: string; color?: str
 export interface PineTrade {
   id: string; side: "LONG" | "SHORT"; quantity: number; entryPrice: number; exitPrice: number;
   entryTime: number; exitTime: number; pnlPoints: number; isOpen: boolean;
-}
-export type PineInputMeta = ReturnType<Indicator["getInputsMeta"]>[number];
-export function getPineInputs(code: string): PineInputMeta[] {
-  try { detectPineProgram(code); return new Indicator(code).getInputsMeta(); } catch { return []; }
 }
 export interface PineExecutionResult {
   kind: PineProgramKind; title: string; version: number; plots: PinePlot[]; rawPlots: Record<string, any>; trades: PineTrade[];
@@ -50,20 +46,14 @@ function normalizePlots(rawPlots: unknown): PinePlot[] {
       };
     }).filter(plot => plot.data.length > 0);
 }
-export async function executePineScript(code: string, candles: Candle[], inputOverrides: Record<string, unknown> = {}): Promise<PineExecutionResult> {
+export async function executePineScript(code: string, candles: Candle[]): Promise<PineExecutionResult> {
   const program = detectPineProgram(code);
   if (program.version !== 5 && program.version !== 6) throw new Error(`Pine Script v${program.version} chưa được hỗ trợ. Hiện hỗ trợ v5/v6 theo khả năng của PineTS.`);
   if (candles.length < 2) throw new Error("Không đủ dữ liệu nến để chạy Pine Script.");
   const source = candles.map(candleToPineData).filter(bar => Number.isFinite(bar.openTime) && Number.isFinite(bar.open) && Number.isFinite(bar.high) && Number.isFinite(bar.low) && Number.isFinite(bar.close));
   if (!source.length) throw new Error("Dữ liệu OHLCV không hợp lệ.");
   const runtime = new PineTS(source);
-  const indicator = new Indicator(code);
-  for (const meta of indicator.getInputsMeta()) {
-    if (Object.prototype.hasOwnProperty.call(inputOverrides, meta.id)) indicator.input[meta.id] = inputOverrides[meta.id];
-    else if (meta.varId && Object.prototype.hasOwnProperty.call(inputOverrides, meta.varId)) indicator.input[meta.varId] = inputOverrides[meta.varId];
-    else if (meta.title && Object.prototype.hasOwnProperty.call(inputOverrides, meta.title)) indicator.input[meta.title] = inputOverrides[meta.title];
-  }
-  const context = await runtime.run(indicator);
+  const context = await runtime.run(code);
   const strategyContext = (context as any)?.strategy;
   const closed = program.kind === "strategy" && Array.isArray(strategyContext?.closedtrades) ? strategyContext.closedtrades : [];
   const open = program.kind === "strategy" && Array.isArray(strategyContext?.opentrades) ? strategyContext.opentrades : [];

@@ -1480,7 +1480,7 @@ export function ChartPanel({
 
 
   useIndicators(chartRef, candleSeriesRef, chartData, activeIndicators, isDark, indicatorParams ?? {} as Record<IndicatorType, Record<string, number>>, indicatorCodeOverrides, customIndicators);
-  usePinePlots(chartRef, candleSeriesRef, containerRef, chartData, allCandles, pineExecution ?? null);
+  usePinePlots(chartRef, candleSeriesRef, chartData, pineExecution ?? null);
 
   const fvgDefinition = customIndicators?.find(
     (item) => item.enabled === true && /\bFVGIndicator\b/.test(item.code),
