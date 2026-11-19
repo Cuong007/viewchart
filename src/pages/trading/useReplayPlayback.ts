@@ -36,22 +36,6 @@ function syncCursorToServer(
     .catch(() => null);
 }
 
-/**
- * End-of-buffer transition: pin the cursor, stop the server session (so it
- * doesn't sit in PLAYING until the TTL reaper catches it) and flip the store.
- */
-function localDateString(ms: number): string {
-  const d = new Date(ms);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function finishReplay(accountId: string, sessionDate: string | null, endMs: number): void {
-  useTradingStore.setState({ replayCursorTimestamp: endMs });
-  if (sessionDate) {
-    api.replayStop(accountId, sessionDate).catch(() => null);
-  }
-  useTradingStore.getState().onReplayStateChanged("stopped");
-}
 
 /**
  * Drives the client-side replay clock using requestAnimationFrame.
@@ -59,7 +43,7 @@ function finishReplay(accountId: string, sessionDate: string | null, endMs: numb
  * - Advances one candle per second at 1x; speed controls candles per second.
  * - Throttles Zustand writes and debounces server cursor persistence.
  * - Detects external seeks by comparing store cursor to local cursor ref.
- * - Auto-stops and emits "stopped" when the cursor reaches the end of the buffer.
+ * - Never auto-stops at the final market candle; it follows the wall clock.
  */
 export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
   const isReplaying = useTradingStore((s) => s.isReplaying);
@@ -189,10 +173,18 @@ export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
       if (steps > 0) {
         const currentCursor = localCursorMsRef.current ?? buf[0]!.t;
         const intervalMs = TF_INTERVAL_MS[timeframeRef.current] ?? 60_000;
-        localCursorMsRef.current = currentCursor + steps * intervalMs;
+        // Replay may start on any historical date, but its clock is never
+        // bounded by that day's final candle. It advances continuously until
+        // it catches the real wall clock, then follows "now" without stopping
+        // or switching back to realtime mode.
+        localCursorMsRef.current = Math.min(
+          currentCursor + steps * intervalMs,
+          Date.now(),
+        );
         stepAccumulatorRef.current -= steps;
       }
-      const newCursorMs = localCursorMsRef.current ?? buf[0]!.t;
+      const newCursorMs = Math.min(localCursorMsRef.current ?? buf[0]!.t, Date.now());
+      localCursorMsRef.current = newCursorMs;
       // Keep the chart index aligned to the latest bar at or before the clock,
       // while allowing the clock itself to move ahead of a delayed data feed.
       let nextIndex = 0;
@@ -201,20 +193,9 @@ export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
       syncCursorToStore(now, lastStoreSyncRef, newCursorMs);
       syncCursorToServer(now, lastServerSyncRef, accountId, sessionDateRef.current, newCursorMs);
 
-      const today = localDateString(Date.now());
-      const isCurrentDay = sessionDateRef.current === today;
-      const lastBarMs = tickBufferRef.current[tickBufferRef.current.length - 1]?.t ?? buf[buf.length - 1]?.t ?? 0;
-      // Historical market-data feeds commonly stop recording at the final
-      // session candle (e.g. 16:39). The replay clock must not stop at that
-      // candle: preserve a one-hour replay tail so the selected session runs
-      // through 17:39. Today's replay remains live and ends at wall-clock now.
-      const historicalEndMs = lastBarMs > 0 ? lastBarMs + 60 * 60 * 1000 : 0;
-      const targetMs = isCurrentDay ? Date.now() : historicalEndMs;
-      if (newCursorMs >= targetMs && targetMs > 0) {
-        isActiveRef.current = false;
-        finishReplay(accountId, sessionDateRef.current, targetMs);
-        return false;
-      }
+      // Intentionally no end-of-session stop condition. Replay stays active
+      // after the historical market close and remains pinned to current time
+      // once it catches up, rather than reverting to the live chart.
       return true;
     };
 
