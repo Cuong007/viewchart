@@ -63,6 +63,7 @@ export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
   const speedRef = useRef(replaySpeed);
   const timeframeRef = useRef(timeframe);
   const sessionDateRef = useRef(replaySessionDate);
+  const tickBufferRef = useRef<TickBar[]>([]);
   const playbackBarsRef = useRef<TickBar[]>([]);
   const cursorIndexRef = useRef(0);
   const stepAccumulatorRef = useRef(0);
@@ -85,7 +86,9 @@ export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
     sessionDateRef.current = replaySessionDate;
   }, [replaySessionDate]);
 
-  // Reset playback position whenever a replay session (re)starts.
+  // Reset playback position whenever a replay session (re)starts. Without this
+  // the local cursor/index refs survive a stop, so replaying the same day
+  // resumed from the previous end-of-buffer and auto-stopped immediately.
   useEffect(() => {
     if (isReplaying) {
       localCursorMsRef.current = null;
@@ -100,6 +103,7 @@ export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
     const nextBuffer = sessionData?.tickBuffer;
     if (!nextBuffer?.length) return;
     const previousCursor = localCursorMsRef.current ?? useTradingStore.getState().replayCursorTimestamp;
+    tickBufferRef.current = nextBuffer;
     playbackBarsRef.current = nextBuffer;
     if (previousCursor != null) {
       let idx = 0;

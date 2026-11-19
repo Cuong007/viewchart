@@ -23,10 +23,20 @@ export function ReplayScrubber({ accountId }: { accountId: string }) {
   const sessionDate = replaySessionDate;
 
   const startMs = tickBuffer[0]?.t ?? null;
-  // The selected replay date is only the starting point. The timeline
-  // always extends to the current wall clock, even when the selected day is
-  // months old or its feed ended at the market close.
-  const endMs = Date.now();
+  // On today's replay the timeline must end at wall-clock "now", not at the
+  // last downloaded candle (which may lag or stop at the market-session close).
+  // Historical sessions remain bounded by their final available candle.
+  const now = new Date();
+  const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const lastBarMs = tickBuffer[tickBuffer.length - 1]?.t ?? null;
+  // Keep the scrubber endpoint identical to useReplayPlayback's stop target.
+  // Historical feeds can end at 16:39 while the replay session is expected to
+  // continue until 17:39; current-day replay follows the live wall clock.
+  const endMs = sessionDate === todayLocal
+    ? Date.now()
+    : lastBarMs != null
+      ? lastBarMs + 60 * 60 * 1000
+      : null;
   const rangeMs = startMs != null && endMs != null ? Math.max(0, endMs - startMs) : 0;
 
   const thumbPct =
