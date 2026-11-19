@@ -2,7 +2,7 @@ import { Indicator, PineTS } from "pinets";
 import type { Candle } from "../services/schemas.ts";
 
 export type PineProgramKind = "indicator" | "strategy";
-export interface PinePlotPoint { time: number; value: number; color?: string; }
+export interface PinePlotPoint { time: number; value: number; color?: string; offset?: number; }
 export interface PinePlot { id: string; title: string; type: string; color?: string; overlay: boolean; options: Record<string, any>; data: PinePlotPoint[]; }
 export interface PineTrade {
   id: string; side: "LONG" | "SHORT"; quantity: number; entryPrice: number; exitPrice: number;
@@ -60,7 +60,8 @@ function normalizePlots(rawPlots: unknown): PinePlot[] {
         const value = Number(point?.value);
         if (!Number.isFinite(time) || !Number.isFinite(value)) return [];
         return [{ time: time > 1e12 ? Math.floor(time / 1000) : time, value,
-          ...(typeof point?.options?.color === "string" ? { color: point.options.color } : {}) }];
+          ...(typeof point?.options?.color === "string" ? { color: point.options.color } : {}),
+          ...(Number.isFinite(Number(point?.options?.offset)) ? { offset: Number(point.options.offset) } : {}) }];
       });
       const options = raw?.options && typeof raw.options === "object" ? raw.options : {};
       return {
