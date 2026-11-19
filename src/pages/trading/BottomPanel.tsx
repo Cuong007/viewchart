@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { BookOpen, Clock, Code2, Database, Globe, History, Newspaper, Pencil, Plus, Trash2, TrendingUp, X, Save, FolderOpen } from "lucide-react";
 import { useAuthStore } from "../../services/store.tsx";
 import { useTradingStore } from "../../services/store.tsx";
+import { api } from "../../services/api.ts";
 import {
   useCancelOrder,
   useClosePosition,
