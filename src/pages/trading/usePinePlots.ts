@@ -26,6 +26,8 @@ export function usePinePlots(
 
     const indexByTime = new Map<number,number>();
     chartData.forEach((bar,index)=>indexByTime.set(Number(bar.time),index));
+    const rawTime=(time:unknown)=>{const n=Number(time);return n>1e12?Math.floor(n/1000):n;};
+
     const shiftedTime = (time:number, offset:number):number => {
       const sourceIndex=indexByTime.get(time);
       if(sourceIndex===undefined||!Number.isFinite(offset)||offset===0)return time;
@@ -166,7 +168,6 @@ export function usePinePlots(
           ctx.restore();
         }
       }
-      const rawTime=(time:unknown)=>{const n=Number(time);return n>1e12?Math.floor(n/1000):n;};
       const nextX=(time:number,x:number)=>{const i=indexByTime.get(time);return i===undefined||i>=chartData.length-1?x+8:(xAt(Number(chartData[i+1]!.time))??x+8);};
 
       // Pine bar-level visuals: bgcolor(), barcolor(), plotbar(), plotcandle().
