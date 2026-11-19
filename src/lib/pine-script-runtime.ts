@@ -1,4 +1,4 @@
-import { PineTS } from "pinets";
+import { Indicator, PineTS } from "pinets";
 import type { Candle } from "../services/schemas.ts";
 
 export type PineProgramKind = "indicator" | "strategy";
@@ -8,7 +8,7 @@ export interface PineTrade {
   id: string; side: "LONG" | "SHORT"; quantity: number; entryPrice: number; exitPrice: number;
   entryTime: number; exitTime: number; pnlPoints: number; isOpen: boolean;
 }
-export interface PineExecutionResult {
+export type PineInputMeta = ReturnType<Indicator["getInputsMeta"]>[number];\nexport function getPineInputs(code: string): PineInputMeta[] {\n  try { detectPineProgram(code); return new Indicator(code).getInputsMeta(); } catch { return []; }\n}\nexport interface PineExecutionResult {
   kind: PineProgramKind; title: string; version: number; plots: PinePlot[]; rawPlots: Record<string, any>; trades: PineTrade[];
   summary: { totalTrades: number; winningTrades: number; losingTrades: number; winRate: number; totalPoints: number; averagePoints: number; };
   warnings: string[];
@@ -46,7 +46,7 @@ function normalizePlots(rawPlots: unknown): PinePlot[] {
       };
     }).filter(plot => plot.data.length > 0);
 }
-export async function executePineScript(code: string, candles: Candle[]): Promise<PineExecutionResult> {
+export async function executePineScript(code: string, candles: Candle[], inputOverrides: Record<string, unknown> = {}): Promise<PineExecutionResult> {
   const program = detectPineProgram(code);
   if (program.version !== 5 && program.version !== 6) throw new Error(`Pine Script v${program.version} chưa được hỗ trợ. Hiện hỗ trợ v5/v6 theo khả năng của PineTS.`);
   if (candles.length < 2) throw new Error("Không đủ dữ liệu nến để chạy Pine Script.");
