@@ -31,6 +31,9 @@ import { computeLivePnl, computeLivePrice } from "../../lib/livePnl.ts";
 import { safeStorage } from "../../lib/safe-storage.ts";
 import { isHyperliquidMode } from "../../hyperliquid/ui/mode.ts";
 import { INDICATOR_REGISTRY, type CustomIndicatorDefinition, type IndicatorType } from "../../lib/indicators.ts";
+import type { Candle } from "../../services/schemas.ts";
+import { PineScriptEditor } from "./PineScriptEditor.tsx";
+import type { PineExecutionResult } from "../../lib/pine-script-runtime.ts";
 
 type TradingActionError = {
   error?: { message?: string };
@@ -48,8 +51,8 @@ function getErrorMessage(error: unknown): string {
 }
 
 export interface BottomPanelProps {
-  tab: "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators" | "indicator-code" | "data-sources";
-  onTabChange: (t: "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators" | "indicator-code" | "data-sources") => void;
+  tab: "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators" | "indicator-code" | "data-sources" | "pine-script" | "strategy-tester";
+  onTabChange: (t: "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators" | "indicator-code" | "data-sources" | "pine-script" | "strategy-tester") => void;
   activeIndicators: IndicatorType[];
   onToggleIndicator: (type: IndicatorType) => void;
   indicatorParams: Record<IndicatorType, Record<string, number>>;
@@ -61,6 +64,9 @@ export interface BottomPanelProps {
   onDeleteIndicator: (type: IndicatorType) => void;
   onDeleteCustomIndicator: (id: string) => void;
   onToggleCustomIndicator: (id: string) => void;
+  pineCandles: Candle[];
+  pineExecution: PineExecutionResult | null;
+  onPineExecution: (result: PineExecutionResult | null) => void;
   positions: Position[];
   orders: Order[];
   accountId: string | null;
@@ -185,6 +191,9 @@ export function BottomPanel({
   onDeleteIndicator,
   onDeleteCustomIndicator,
   onToggleCustomIndicator,
+  pineCandles,
+  pineExecution,
+  onPineExecution,
 }: BottomPanelProps) {
   const isDemo = useAuthStore((s) => s.isDemo);
   const [editingIndicator, setEditingIndicator] = useState<IndicatorType | null>(null);
@@ -373,6 +382,8 @@ export function BottomPanel({
     { key: "indicators", label: "Indicators", icon: TrendingUp },
     { key: "indicator-code", label: "Code chỉ báo", icon: Code2 },
     { key: "data-sources", label: "Nguồn dữ liệu", icon: Database },
+    { key: "pine-script", label: "Pine Script", icon: Code2 },
+    ...(pineExecution?.kind === "strategy" ? [{ key: "strategy-tester" as const, label: "Strategy Tester", icon: TrendingUp }] : []),
   ];
   // The calendar and news tabs are sample data; a live broker must not show it.
   const visibleTabs = isHyperliquidMode()
@@ -437,6 +448,29 @@ export function BottomPanel({
       {/* Content */}
       <div className="flex-1 overflow-auto">
         {tab === "data-sources" && <DataSourcesPanel />}
+        {tab === "pine-script" && <PineScriptEditor candles={pineCandles} onExecution={onPineExecution} />}
+        {tab === "strategy-tester" && pineExecution?.kind === "strategy" && (
+          <div className="space-y-3 p-3 text-xs">
+            <div className="font-semibold text-sm">{pineExecution.title} · Strategy Tester</div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {[
+                ["Tổng giao dịch", String(pineExecution.summary.totalTrades)],
+                ["Lệnh thắng", String(pineExecution.summary.winningTrades)],
+                ["Lệnh thua", String(pineExecution.summary.losingTrades)],
+                ["Win rate", pineExecution.summary.winRate.toFixed(1) + "%"],
+                ["Tổng P&L", (pineExecution.summary.totalPoints >= 0 ? "+" : "") + pineExecution.summary.totalPoints.toFixed(2) + " điểm"],
+                ["TB / giao dịch", (pineExecution.summary.averagePoints >= 0 ? "+" : "") + pineExecution.summary.averagePoints.toFixed(2) + " điểm"],
+              ].map(([label, value]) => <div key={label} className="rounded-md border border-border p-2"><div className="text-muted-foreground">{label}</div><div className="mt-1 font-mono font-semibold">{value}</div></div>)}
+            </div>
+            <div className="overflow-x-auto rounded-md border border-border">
+              <table className="w-full text-left"><thead className="bg-secondary text-muted-foreground"><tr>{["#", "Loại", "SL", "Giá vào", "Giá đóng", "P&L (điểm)"].map(label => <th key={label} className="px-2 py-2">{label}</th>)}</tr></thead>
+                <tbody>{pineExecution.trades.map((trade, index) => <tr key={trade.id + index} className="border-t border-border"><td className="px-2 py-2">{index + 1}</td><td className="px-2 py-2">{trade.side}{trade.isOpen ? " (Mở)" : ""}</td><td className="px-2 py-2 font-mono">{trade.quantity}</td><td className="px-2 py-2 font-mono">{trade.entryPrice}</td><td className="px-2 py-2 font-mono">{trade.isOpen ? "—" : trade.exitPrice}</td><td className={"px-2 py-2 font-mono " + (trade.pnlPoints >= 0 ? "text-emerald-600" : "text-red-500")}>{trade.pnlPoints >= 0 ? "+" : ""}{trade.pnlPoints.toFixed(2)}</td></tr>)}
+                  {pineExecution.trades.length === 0 && <tr><td colSpan={6} className="p-4 text-center text-muted-foreground">Chưa có giao dịch trong dữ liệu hiện tại.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
         {tab === "positions" && (
           <PositionsTable
             positions={openPositions}
