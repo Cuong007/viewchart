@@ -40,6 +40,11 @@ function syncCursorToServer(
  * End-of-buffer transition: pin the cursor, stop the server session (so it
  * doesn't sit in PLAYING until the TTL reaper catches it) and flip the store.
  */
+function localDateString(ms: number): string {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function finishReplay(accountId: string, sessionDate: string | null, endMs: number): void {
   useTradingStore.setState({ replayCursorTimestamp: endMs });
   if (sessionDate) {
@@ -115,7 +120,8 @@ export function useReplayPlayback(accountId: string, _timeframe: Timeframe) {
       let idx = 0;
       while (idx < nextBuffer.length && (nextBuffer[idx]?.t ?? Infinity) <= previousCursor) idx++;
       cursorIndexRef.current = Math.max(0, idx - 1);
-      localCursorMsRef.current = nextBuffer[cursorIndexRef.current]?.t ?? nextBuffer[0]!.t;
+      // Keep the time cursor even when it is temporarily ahead of the newest
+      // downloaded candle. Polling will fill the gap without rewinding playback.
     } else {
       cursorIndexRef.current = Math.min(30, nextBuffer.length - 1);
       localCursorMsRef.current = nextBuffer[cursorIndexRef.current]?.t ?? null;
@@ -162,14 +168,14 @@ export function useReplayPlayback(accountId: string, _timeframe: Timeframe) {
         return true;
       }
 
-      // BAR-BASED replay: speed means candles per second, not elapsed
-      // market-time seconds. A 1m candle therefore advances once per second.
+      // Replay time advances by one market minute per second at 1x. Unlike an
+      // index-based clock, it keeps moving while the newest 1m candle is being
+      // fetched, so the progress bar cannot freeze at the current buffer edge.
       const realDeltaMs = Math.min(now - lastFrameTimeRef.current, 100);
       lastFrameTimeRef.current = now;
       const buf = playbackBarsRef.current;
       if (buf.length === 0) return true;
 
-      const lastIndex = buf.length - 1;
       if (localCursorMsRef.current == null) {
         cursorIndexRef.current = Math.max(0, cursorIndexRef.current);
         localCursorMsRef.current = buf[cursorIndexRef.current]?.t ?? buf[0]!.t;
@@ -177,22 +183,29 @@ export function useReplayPlayback(accountId: string, _timeframe: Timeframe) {
       stepAccumulatorRef.current += (realDeltaMs / 1000) * Math.max(0.1, speedRef.current);
       const steps = Math.floor(stepAccumulatorRef.current);
       if (steps > 0) {
-        cursorIndexRef.current = Math.min(lastIndex, cursorIndexRef.current + steps);
+        const currentCursor = localCursorMsRef.current ?? buf[0]!.t;
+        localCursorMsRef.current = currentCursor + steps * 60_000;
         stepAccumulatorRef.current -= steps;
       }
-      const newCursorMs = buf[cursorIndexRef.current]!.t;
-      localCursorMsRef.current = newCursorMs;
+      const newCursorMs = localCursorMsRef.current ?? buf[0]!.t;
+      // Keep the chart index aligned to the latest bar at or before the clock,
+      // while allowing the clock itself to move ahead of a delayed data feed.
+      let nextIndex = 0;
+      while (nextIndex < buf.length && (buf[nextIndex]?.t ?? Infinity) <= newCursorMs) nextIndex++;
+      cursorIndexRef.current = Math.max(0, nextIndex - 1);
       syncCursorToStore(now, lastStoreSyncRef, newCursorMs);
       syncCursorToServer(now, lastServerSyncRef, accountId, sessionDateRef.current, newCursorMs);
 
-      if (cursorIndexRef.current >= lastIndex) {
-        const latestBarMs = tickBufferRef.current[tickBufferRef.current.length - 1]?.t ?? buf[lastIndex]?.t ?? 0;
-        const caughtLiveEdge = latestBarMs >= Math.floor(Date.now() / 60_000) * 60_000;
-        if (caughtLiveEdge) {
-          isActiveRef.current = false;
-          finishReplay(accountId, sessionDateRef.current, newCursorMs);
-          return false;
-        }
+      const today = localDateString(Date.now());
+      const isCurrentDay = sessionDateRef.current === today;
+      const lastBarMs = tickBufferRef.current[tickBufferRef.current.length - 1]?.t ?? buf[buf.length - 1]?.t ?? 0;
+      const targetMs = isCurrentDay
+        ? Math.floor(Date.now() / 60_000) * 60_000
+        : lastBarMs;
+      if (newCursorMs >= targetMs && targetMs > 0) {
+        isActiveRef.current = false;
+        finishReplay(accountId, sessionDateRef.current, newCursorMs);
+        return false;
       }
       return true;
     };
