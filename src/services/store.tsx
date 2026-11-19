@@ -334,7 +334,7 @@ export const useTradingStore = create<TradingState>((set, get) => ({
   positions: [],
   orders: [],
   symbols: [],
-  selectedSymbol: "BTCUSD",
+  selectedSymbol: safeStorage.getItem("opencharts_selected_symbol") || "BTCUSD",
   ticks: {},
   liveTicks: {},
   liveCandleUpdates: {},
@@ -483,12 +483,14 @@ export const useTradingStore = create<TradingState>((set, get) => ({
     }));
   },
 
-  setSelectedSymbol: (symbol) =>
+  setSelectedSymbol: (symbol) => {
+    safeStorage.setItem("opencharts_selected_symbol", symbol);
     set((state) =>
       state.selectedSymbol === symbol
         ? { selectedSymbol: symbol }
         : { selectedSymbol: symbol, liveCandleUpdates: {} },
-    ),
+    );
+  },
   setPositions: (positions) => set({ positions }),
   setOrders: (orders) => set({ orders }),
   setReplaySessionDate: (date) => set({ replaySessionDate: date }),
