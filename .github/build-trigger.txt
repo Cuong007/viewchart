@@ -1,1 +1,1 @@
-Pine rendering and Pine input controls build trigger.
+Pine rendering, Pine inputs and typecheck fixes build trigger.
