@@ -49,7 +49,7 @@ function inferPineTimeframe(candles: Candle[]): string {
   if (interval % 60 === 0) return String(interval / 60);
   return `${interval}S`;
 }
-function normalizePlots(rawPlots: unknown): PinePlot[] {
+function normalizePlots(rawPlots: unknown, declarationOverlay: boolean): PinePlot[] {
   if (!rawPlots || typeof rawPlots !== "object") return [];
   return Object.entries(rawPlots as Record<string, any>)
     .filter(([id]) => !id.startsWith("__"))
@@ -68,7 +68,7 @@ function normalizePlots(rawPlots: unknown): PinePlot[] {
         id, title: String(raw?.title ?? options.title ?? id),
         type: String(options.style ?? raw?.type ?? "line"),
         color: typeof options.color === "string" ? options.color : "#2962ff",
-        overlay: options.overlay !== false, options, data,
+        overlay: typeof options.overlay === "boolean" ? options.overlay : declarationOverlay, options, data,
       };
     }).filter(plot => plot.data.length > 0 && String(plot.options.display ?? "all") !== "none");
 }
@@ -109,7 +109,7 @@ export async function executePineScript(code: string, candles: Candle[], inputOv
   const wins = closedTrades.filter(trade => trade.pnlPoints > 0).length;
   const totalPoints = closedTrades.reduce((sum, trade) => sum + trade.pnlPoints, 0);
   return {
-    ...program, plots: normalizePlots((context as any)?.plots), rawPlots: (context as any)?.plots ?? {}, trades,
+    ...program, plots: normalizePlots((context as any)?.plots, (context as any)?.indicator?.overlay === true), rawPlots: (context as any)?.plots ?? {}, trades,
     summary: { totalTrades: closedTrades.length, winningTrades: wins, losingTrades: closedTrades.filter(trade => trade.pnlPoints < 0).length, winRate: closedTrades.length ? wins / closedTrades.length * 100 : 0, totalPoints, averagePoints: closedTrades.length ? totalPoints / closedTrades.length : 0 },
     warnings: Array.isArray((context as any)?.warnings) ? (context as any).warnings.map((warning: any) => String(warning?.message ?? warning)) : [],
   };
