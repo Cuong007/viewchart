@@ -130,26 +130,6 @@ export function useReplayPlayback(accountId: string, timeframe: Timeframe) {
     }
   }, [replayCursorTimestamp]);
 
-  // TradingView-style single-candle stepping while paused.
-  useEffect(() => {
-    const handleStep = (event: Event) => {
-      const direction = (event as CustomEvent<"forward" | "backward">).detail;
-      if (!useTradingStore.getState().isReplaying) return;
-      const times = playbackTimesRef.current;
-      if (!times.length) return;
-      const next = Math.max(0, Math.min(times.length - 1, cursorIndexRef.current + (direction === "forward" ? 1 : -1)));
-      cursorIndexRef.current = next;
-      const timestamp = times[next];
-      if (timestamp == null) return;
-      localCursorMsRef.current = timestamp;
-      stepAccumulatorRef.current = 0;
-      useTradingStore.setState({ replayPaused: true, replayCursorTimestamp: timestamp });
-      syncCursorToServer(Date.now(), { current: 0 }, accountId, sessionDateRef.current, timestamp);
-    };
-    window.addEventListener("opencharts-replay-step", handleStep);
-    return () => window.removeEventListener("opencharts-replay-step", handleStep);
-  }, [accountId]);
-
   // ── rAF playback loop ────────────────────────────────────
   useEffect(() => {
     if (!isReplaying || replayPaused) {
