@@ -130,7 +130,7 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
   const chartPrefs = useChartPreferences();
   const [activeIndicators, setActiveIndicators] = useState<IndicatorType[]>(() => {
     const saved = safeStorage.getJSON<IndicatorType[]>("opencharts_active_indicators", []);
-    return Array.isArray(saved) ? saved.filter((type) => type in INDICATOR_REGISTRY) : [];
+    return Array.isArray(saved) ? saved.filter((type) => INDICATOR_REGISTRY.some((item) => item.type === type)) : [];
   });
   const [indicatorParams, setIndicatorParams] = useState<Record<IndicatorType, Record<string, number>>>(() => {
     const defaults = Object.fromEntries(INDICATOR_REGISTRY.map((item) => [item.type, { ...item.defaultParams }])) as Record<IndicatorType, Record<string, number>>;
