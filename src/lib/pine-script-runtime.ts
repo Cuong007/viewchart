@@ -85,9 +85,22 @@ export async function executePineScript(code: string, candles: Candle[], inputOv
   const runtime = new PineTS(source, undefined, chartTimeframe);
   const indicator = new Indicator(code);
   for (const meta of indicator.getInputsMeta()) {
-    if (Object.prototype.hasOwnProperty.call(inputOverrides, meta.id)) indicator.input[meta.id] = inputOverrides[meta.id];
-    else if (meta.varId && Object.prototype.hasOwnProperty.call(inputOverrides, meta.varId)) indicator.input[meta.varId] = inputOverrides[meta.varId];
-    else if (meta.title && Object.prototype.hasOwnProperty.call(inputOverrides, meta.title)) indicator.input[meta.title] = inputOverrides[meta.title];
+    const keys = [meta.varId, meta.id, meta.title].filter((key): key is string => typeof key === "string" && key.length > 0);
+    const overrideKey = keys.find(key => Object.prototype.hasOwnProperty.call(inputOverrides, key));
+    if (!overrideKey) continue;
+    const rawValue = inputOverrides[overrideKey];
+    let value: unknown = rawValue;
+    // A stale value from an older editor version must never change the Pine
+    // input's declared type (notably input.timeframe, which is always string).
+    if (meta.type === "timeframe" || meta.type === "string" || meta.type === "source" || meta.type === "symbol" || meta.type === "session") {
+      value = typeof rawValue === "string" ? rawValue : (typeof meta.defval === "string" ? meta.defval : "");
+    } else if (meta.type === "bool") {
+      value = typeof rawValue === "boolean" ? rawValue : Boolean(meta.defval);
+    } else if (meta.type === "int" || meta.type === "float" || meta.type === "price") {
+      const numeric = typeof rawValue === "number" ? rawValue : Number(rawValue);
+      value = Number.isFinite(numeric) ? numeric : meta.defval;
+    }
+    indicator.input[meta.varId || overrideKey] = value;
   }
   const context = await runtime.run(indicator);
   const strategyContext = (context as any)?.strategy;
