@@ -1814,6 +1814,7 @@ export function ChartPanel({
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(handleRangeChange);
       ro.disconnect();
       drawingManager.destroy();
+      crosshairDateLabel.remove();
       drawingManagerRef.current = null;
       setSelectedDrawingIds([]);
       setShowDrawingSettings(false);
