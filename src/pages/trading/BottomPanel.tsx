@@ -556,10 +556,22 @@ function SnapshotToolbar<T>({ storageKey, data, onLoad, label, getData }: { stor
   const [snapshots, setSnapshots] = useState<DataSnapshot<T>[]>(() => { try { const v = JSON.parse(safeStorage.getItem(storageKey) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; } });
   const [selectedId, setSelectedId] = useState("");
   const persist = (next: DataSnapshot<T>[]) => { setSnapshots(next); safeStorage.setJSON(storageKey, next); };
-  const saveAs = () => {
-    const name = window.prompt("Đặt tên bản lưu " + label + ":"); if (!name || !name.trim()) return;
-    const snapshot: DataSnapshot<T> = { id: typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Date.now()), name: name.trim(), createdAt: new Date().toISOString(), data: JSON.parse(JSON.stringify(data)) as T };
-    persist([snapshot, ...snapshots]); setSelectedId(snapshot.id); toast.success("Đã lưu bản dữ liệu", name.trim());
+  const saveAs = async () => {
+    const name = window.prompt("Đặt tên bản lưu " + label + ":");
+    if (!name || !name.trim()) return;
+    try {
+      const source = getData ? await getData() : data;
+      const snapshot: DataSnapshot<T> = {
+        id: typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Date.now()),
+        name: name.trim(), createdAt: new Date().toISOString(),
+        data: JSON.parse(JSON.stringify(source)) as T,
+      };
+      persist([snapshot, ...snapshots]);
+      setSelectedId(snapshot.id);
+      toast.success("Đã lưu bản dữ liệu", name.trim());
+    } catch (error) {
+      toast.error("Không thể lưu", error instanceof Error ? error.message : "Lỗi đọc dữ liệu");
+    }
   };
   const load = () => { const item = snapshots.find((x) => x.id === selectedId); if (!item) { toast.warning("Chưa chọn bản lưu", "Hãy chọn dữ liệu cần tải."); return; } onLoad(JSON.parse(JSON.stringify(item.data)) as T); toast.success("Đã tải dữ liệu", item.name); };
   const remove = () => { const item = snapshots.find((x) => x.id === selectedId); if (!item || !window.confirm("Xóa bản lưu '" + item.name + "'?")) return; persist(snapshots.filter((x) => x.id !== selectedId)); setSelectedId(""); onLoad(null); };
