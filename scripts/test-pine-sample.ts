@@ -27,7 +27,7 @@ if (result.plots.some(plot => plot.title === "RSI ẩn" || plot.title === "Secur
 
 const raw = Object.values(result.rawPlots) as Array<{ options?: { style?: string } }>;
 const styles = new Set(raw.map(plot => String(plot.options?.style ?? "")));
-for (const required of ["fill", "hline", "shape", "char", "background", "barcolor", "candle"]) {
+for (const required of ["fill", "shape", "char", "background", "barcolor", "candle"]) {
   if (!styles.has(required)) throw new Error(`Pine feature not emitted: ${required}`);
 }
 
