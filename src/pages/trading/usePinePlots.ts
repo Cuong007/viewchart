@@ -49,7 +49,17 @@ export function usePinePlots(
         return [{ time: targetTime as Time, value: point.value, ...(point.color ? { color: point.color } : {}) }];
       }).sort((a,b) => Number(a.time) - Number(b.time));
       if (!data.length) continue;
-      const common = { title: plot.title, priceScaleId: "right", lastValueVisible: true, priceLineVisible: false };
+      // Non-overlay Pine plots (especially oscillators/histograms with a zero
+      // baseline) must never participate in the candlestick price autoscale.
+      // Lightweight Charts 4.x renders custom price scales as independent
+      // overlay scales, preserving the main candle scale.
+      const isolatedScale = !plot.overlay || style === "histogram" || style === "columns";
+      const common = {
+        title: plot.title,
+        priceScaleId: isolatedScale ? `pine-${plot.id}` : "right",
+        lastValueVisible: true,
+        priceLineVisible: false,
+      };
       if (style === "area" || style === "areabr") {
         const series = chart.addAreaSeries({ ...common, lineColor: plot.color || "#2962ff", topColor: plot.color || "#2962ff", bottomColor: "rgba(41,98,255,0.03)" });
         series.setData(data); seriesRef.current.push(series);
@@ -78,6 +88,9 @@ export function usePinePlots(
       }
     }
 
+    // React StrictMode and rapid script reruns can briefly overlap effect
+    // lifecycles. Enforce a single owned overlay canvas in this chart host.
+    container.querySelectorAll('canvas[data-pine-overlay="true"]').forEach(node => node.remove());
     const canvas = document.createElement("canvas");
     canvas.dataset.pineOverlay = "true";
     Object.assign(canvas.style, { position:"absolute", inset:"0", width:"100%", height:"100%", pointerEvents:"none", zIndex:"8" });
@@ -314,14 +327,33 @@ export function usePinePlots(
         if(!trade.isOpen){const exitX=xAt(ex),exitBar=candleByTime.get(ex),exitY=exitBar?priceY(trade.side==="LONG"?exitBar.high:exitBar.low):null;if(exitX!==null&&exitY!==null)drawShape(exitX,exitY,"circle",trade.pnlPoints>=0?"#16a34a":"#dc2626",(trade.pnlPoints>=0?"+":"")+trade.pnlPoints.toFixed(1),"#fff",4);}
       }
     };
-    const scheduleDraw=()=>requestAnimationFrame(draw),observer=new ResizeObserver(scheduleDraw);
-    observer.observe(container);timeScale.subscribeVisibleLogicalRangeChange(scheduleDraw);
-    // The overlay contains no pointer-dependent UI. Redrawing hundreds of Pine
-    // objects on every pointermove caused severe lag on mobile devices.
-    draw();
-    return ()=>{
-      observer.disconnect();timeScale.unsubscribeVisibleLogicalRangeChange(scheduleDraw);
-      canvas.remove();const current=chartRef.current;if(current)for(const series of seriesRef.current){try{current.removeSeries(series);}catch{/* disposed */}}seriesRef.current=[];
+    let frameId = 0;
+    const scheduleDraw = () => {
+      if (frameId) cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(() => {
+        frameId = 0;
+        if (canvas.isConnected) draw();
+      });
+    };
+    const observer = new ResizeObserver(scheduleDraw);
+    observer.observe(container);
+    timeScale.subscribeVisibleLogicalRangeChange(scheduleDraw);
+    chart.subscribeSizeChange(scheduleDraw);
+    // Wait for Lightweight Charts to finish laying out newly-added series and
+    // price scales before the first paint; this avoids the initial offset/ghost
+    // frame that corrected itself only after the user moved the chart.
+    scheduleDraw();
+    return () => {
+      if (frameId) cancelAnimationFrame(frameId);
+      observer.disconnect();
+      timeScale.unsubscribeVisibleLogicalRangeChange(scheduleDraw);
+      chart.unsubscribeSizeChange(scheduleDraw);
+      canvas.remove();
+      const current = chartRef.current;
+      if (current) for (const series of seriesRef.current) {
+        try { current.removeSeries(series); } catch { /* disposed */ }
+      }
+      seriesRef.current = [];
     };
   },[chartData,candles,execution,chartRef,candleSeriesRef,containerRef]);
 }
