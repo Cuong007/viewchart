@@ -193,6 +193,11 @@ export function BottomPanel({
   const [editorName, setEditorName] = useState("");
   const [editorCode, setEditorCode] = useState("");
   const [loadedJournalSnapshot, setLoadedJournalSnapshot] = useState<JournalEntry[] | null>(null);
+  const journalSessionKey = "opencharts_trade_journal_session_" + (accountId || "none");
+  const [journalSessionStart, setJournalSessionStart] = useState<number>(() => Number(safeStorage.getItem(journalSessionKey) || 0));
+  useEffect(() => { setJournalSessionStart(Number(safeStorage.getItem(journalSessionKey) || 0)); setLoadedJournalSnapshot(null); }, [journalSessionKey]);
+  const visibleJournalEntries = journalSessionStart ? journalEntries.filter((entry) => Date.parse(entry.createdAt) >= journalSessionStart) : journalEntries;
+  const startNewJournal = () => { if (!window.confirm("Tạo nhật ký mới? Nhật ký cũ sẽ được ẩn khỏi phiên thử nghiệm này nhưng không bị xóa.")) return; const startedAt = Date.now(); safeStorage.setItem(journalSessionKey, String(startedAt)); setJournalSessionStart(startedAt); setLoadedJournalSnapshot(null); toast.success("Đã tạo nhật ký mới", "Dữ liệu cũ được giữ nguyên và tách khỏi phiên thử nghiệm mới."); };
   const beginEditIndicator = (type: IndicatorType) => {
     const templates: Partial<Record<IndicatorType, string>> = {
       SMA: "(candles, params) => {\n  const period = params.period || 20;\n  const result = [];\n  for (let i = period - 1; i < candles.length; i++) {\n    const slice = candles.slice(i - period + 1, i + 1);\n    const value = slice.reduce((sum, candle) => sum + candle.close, 0) / period;\n    result.push({ time: candles[i].time, value });\n  }\n  return result;\n}",
@@ -361,7 +366,7 @@ export function BottomPanel({
       key: "journal",
       label: "Journal",
       icon: BookOpen,
-      count: journalEntries.length,
+      count: visibleJournalEntries.length,
     },
     { key: "calendar", label: "Calendar", icon: Globe },
     { key: "news", label: "News", icon: Newspaper },
@@ -452,13 +457,13 @@ export function BottomPanel({
         {tab === "history" && <TradeHistoryTable accountId={accountId} />}
         {tab === "journal" && (
           <div className="flex flex-col h-full">
-          <SnapshotToolbar<JournalEntry[]> storageKey={"opencharts_trade_journal_snapshots_" + (accountId || "none")} data={journalEntries} onLoad={setLoadedJournalSnapshot} label="nhật ký giao dịch" getData={async () => { if (!accountId) return []; const result = await api.getJournalEntries(accountId); return result.entries || []; }}/>
+          <SnapshotToolbar<JournalEntry[]> storageKey={"opencharts_trade_journal_snapshots_" + (accountId || "none")} data={loadedJournalSnapshot ?? visibleJournalEntries} onLoad={setLoadedJournalSnapshot} onNew={startNewJournal} label="nhật ký giao dịch" isLoaded={loadedJournalSnapshot !== null} getData={async () => visibleJournalEntries}/>
           {loadedJournalSnapshot && <div className="px-2 py-1 text-[10px] text-warning">Đang xem bản nhật ký đã tải · chế độ chỉ đọc.</div>}
           <div className="flex-1 min-h-0">
           <TradeJournalPanel
-            entries={loadedJournalSnapshot ?? journalEntries}
+            entries={loadedJournalSnapshot ?? visibleJournalEntries}
             isLoading={journalLoading}
-            readOnly={loadedJournalSnapshot !== null}
+            readOnly={false}
             accountId={accountId}
             onCreateEntry={
               onCreateJournal as unknown as (
@@ -477,7 +482,7 @@ export function BottomPanel({
                 },
               ) => void
             }
-            onDeleteEntry={onDeleteJournal}
+            onDeleteEntry={(id) => { if (loadedJournalSnapshot !== null) setLoadedJournalSnapshot((current) => current ? current.filter((entry) => entry.id !== id) : current); else onDeleteJournal(id); }}
           />
           </div></div>
         )}
@@ -553,7 +558,7 @@ export function BottomPanel({
 }
 
 type DataSnapshot<T> = { id: string; name: string; createdAt: string; data: T };
-function SnapshotToolbar<T>({ storageKey, data, onLoad, label, getData }: { storageKey: string; data: T; onLoad: (value: T | null) => void; label: string; getData?: () => Promise<T> }) {
+function SnapshotToolbar<T>({ storageKey, data, onLoad, onNew, label, getData, isLoaded = false }: { storageKey: string; data: T; onLoad: (value: T | null) => void; onNew: () => void; label: string; getData?: () => Promise<T>; isLoaded?: boolean }) {
   const [snapshots, setSnapshots] = useState<DataSnapshot<T>[]>(() => { try { const v = JSON.parse(safeStorage.getItem(storageKey) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; } });
   const [selectedId, setSelectedId] = useState("");
   const persist = (next: DataSnapshot<T>[]) => { setSnapshots(next); safeStorage.setJSON(storageKey, next); };
@@ -577,11 +582,13 @@ function SnapshotToolbar<T>({ storageKey, data, onLoad, label, getData }: { stor
   const load = () => { const item = snapshots.find((x) => x.id === selectedId); if (!item) { toast.warning("Chưa chọn bản lưu", "Hãy chọn dữ liệu cần tải."); return; } onLoad(JSON.parse(JSON.stringify(item.data)) as T); toast.success("Đã tải dữ liệu", item.name); };
   const remove = () => { const item = snapshots.find((x) => x.id === selectedId); if (!item || !window.confirm("Xóa bản lưu '" + item.name + "'?")) return; persist(snapshots.filter((x) => x.id !== selectedId)); setSelectedId(""); onLoad(null); };
   return <div className="flex flex-wrap items-center gap-1.5 px-2 py-1.5 border-b border-border bg-secondary/30">
-    <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={saveAs}><Save className="h-3 w-3 mr-1"/>Save As</Button>
+    <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={onNew}><Plus className="h-3 w-3 mr-1"/>Tạo mới</Button>
+     <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={saveAs}><Save className="h-3 w-3 mr-1"/>Save As</Button>
     <select aria-label={"Bản lưu " + label} value={selectedId} onChange={(e) => setSelectedId(e.target.value)} className="min-w-0 max-w-[190px] h-7 rounded border border-border bg-background px-2 text-[10px]">
       <option value="">Chọn bản đã lưu ({snapshots.length})</option>{snapshots.map((x) => <option key={x.id} value={x.id}>{x.name} · {formatDate(x.createdAt)}</option>)}
     </select>
     <Button size="sm" variant="outline" className="h-7 text-[10px]" disabled={!selectedId} onClick={load}><FolderOpen className="h-3 w-3 mr-1"/>Load</Button>
+     {isLoaded && <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => { const item = snapshots.find((x) => x.id === selectedId); if (!item) return; persist(snapshots.map((x) => x.id === selectedId ? { ...x, data: JSON.parse(JSON.stringify(data)) as T } : x)); toast.success("Đã cập nhật bản lưu", item.name); }}>Lưu thay đổi</Button>}
     <Button size="sm" variant="ghost" className="h-7 text-[10px] text-destructive" disabled={!selectedId} onClick={remove}><Trash2 className="h-3 w-3 mr-1"/>Xóa bản lưu</Button>
   </div>;
 }
@@ -589,9 +596,13 @@ function SnapshotToolbar<T>({ storageKey, data, onLoad, label, getData }: { stor
 function TradeHistoryTable({ accountId }: { accountId: string | null }) {
   const [page, setPage] = useState(1);
   const [loadedSnapshot, setLoadedSnapshot] = useState<ClosedWithPlatformFee[] | null>(null);
+  const historySessionKey = "opencharts_trade_history_session_" + (accountId || "none");
+  const [historySessionStart, setHistorySessionStart] = useState<number>(() => Number(safeStorage.getItem(historySessionKey) || 0));
+  const startNewHistory = () => { if (!window.confirm("Tạo lịch sử giao dịch mới? Các giao dịch cũ sẽ được ẩn khỏi phiên thử nghiệm này nhưng không bị xóa.")) return; const startedAt = Date.now(); safeStorage.setItem(historySessionKey, String(startedAt)); setHistorySessionStart(startedAt); setLoadedSnapshot(null); setPage(1); toast.success("Đã tạo lịch sử mới", "Các giao dịch cũ được giữ nguyên và tách khỏi phiên mới."); };
   const { data: closedData, isLoading } = useClosedPositions(accountId, page);
   const liveTrades: ClosedWithPlatformFee[] = closedData?.data || [];
-  const trades: ClosedWithPlatformFee[] = loadedSnapshot ?? liveTrades;
+  const sessionTrades = historySessionStart ? liveTrades.filter((trade) => Date.parse(trade.openedAt || trade.closedAt || "") >= historySessionStart) : liveTrades;
+  const trades: ClosedWithPlatformFee[] = loadedSnapshot ?? sessionTrades;
   const showPlatformFee = trades.some((t) => t.platformFee !== undefined);
   const totalPages = closedData?.totalPages || 1;
   const accounts = useTradingStore((s) => s.accounts as AccountOption[]);
@@ -602,6 +613,7 @@ function TradeHistoryTable({ accountId }: { accountId: string | null }) {
     if (prevAccRef.current !== accountId) {
       setPage(1);
       setLoadedSnapshot(null);
+      setHistorySessionStart(Number(safeStorage.getItem("opencharts_trade_history_session_" + (accountId || "none")) || 0));
       prevAccRef.current = accountId;
     }
   }, [accountId]);
@@ -620,7 +632,7 @@ function TradeHistoryTable({ accountId }: { accountId: string | null }) {
     );
   if (trades.length === 0)
     return (
-      <div className="flex flex-col h-full"><SnapshotToolbar<ClosedWithPlatformFee[]> storageKey={"opencharts_trade_history_snapshots_" + (accountId || "none")} data={trades} onLoad={setLoadedSnapshot} label="lịch sử giao dịch" getData={async () => { if (!accountId) return []; const first = await api.getClosedPositions(accountId, 1); const all: ClosedWithPlatformFee[] = [...(first.data || [])]; for (let p = 2; p <= (first.totalPages || 1); p++) { const next = await api.getClosedPositions(accountId, p); all.push(...(next.data || [])); } return all; }}/><div className="flex items-center justify-center flex-1 text-muted-foreground text-xs">
+      <div className="flex flex-col h-full"><SnapshotToolbar<ClosedWithPlatformFee[]> storageKey={"opencharts_trade_history_snapshots_" + (accountId || "none")} data={trades} onLoad={setLoadedSnapshot} onNew={startNewHistory} label="lịch sử giao dịch" getData={async () => { if (!accountId) return []; const first = await api.getClosedPositions(accountId, 1); const all: ClosedWithPlatformFee[] = [...(first.data || [])]; for (let p = 2; p <= (first.totalPages || 1); p++) { const next = await api.getClosedPositions(accountId, p); all.push(...(next.data || [])); } return historySessionStart ? all.filter((trade) => Date.parse(trade.openedAt || trade.closedAt || "") >= historySessionStart) : all; }}/><div className="flex items-center justify-center flex-1 text-muted-foreground text-xs">
         No trade history yet
         {activeAccount ? ` for ${activeAccount.label || accountId?.slice(0, 8)}` : ""}
       </div></div>
@@ -686,7 +698,7 @@ function TradeHistoryTable({ accountId }: { accountId: string | null }) {
           })}
         </tbody>
       </table>
-      {!loadedSnapshot && totalPages > 1 && (
+      {!loadedSnapshot && !historySessionStart && totalPages > 1 && (
         <div className="flex items-center justify-center gap-2 py-1 border-t border-border text-[10px]">
           <button
             onClick={() => setPage(Math.max(1, page - 1))}
