@@ -70,7 +70,7 @@ function normalizePlots(rawPlots: unknown): PinePlot[] {
         color: typeof options.color === "string" ? options.color : "#2962ff",
         overlay: options.overlay !== false, options, data,
       };
-    }).filter(plot => plot.data.length > 0);
+    }).filter(plot => plot.data.length > 0 && String(plot.options.display ?? "all") !== "none");
 }
 export async function executePineScript(code: string, candles: Candle[], inputOverrides: Record<string, unknown> = {}): Promise<PineExecutionResult> {
   const program = detectPineProgram(code);
