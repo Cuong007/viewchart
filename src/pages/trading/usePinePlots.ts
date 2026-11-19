@@ -338,7 +338,6 @@ export function usePinePlots(
     const observer = new ResizeObserver(scheduleDraw);
     observer.observe(container);
     timeScale.subscribeVisibleLogicalRangeChange(scheduleDraw);
-    chart.subscribeSizeChange(scheduleDraw);
     // Wait for Lightweight Charts to finish laying out newly-added series and
     // price scales before the first paint; this avoids the initial offset/ghost
     // frame that corrected itself only after the user moved the chart.
@@ -347,7 +346,6 @@ export function usePinePlots(
       if (frameId) cancelAnimationFrame(frameId);
       observer.disconnect();
       timeScale.unsubscribeVisibleLogicalRangeChange(scheduleDraw);
-      chart.unsubscribeSizeChange(scheduleDraw);
       canvas.remove();
       const current = chartRef.current;
       if (current) for (const series of seriesRef.current) {
