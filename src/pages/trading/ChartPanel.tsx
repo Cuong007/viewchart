@@ -40,7 +40,6 @@ import { SessionBreaks } from "../../lib/chart-plugins/session-breaks/session-br
 import { SessionHighlighting } from "../../lib/chart-plugins/session-highlighting/session-highlighting.ts";
 import { TooltipPrimitive } from "../../lib/chart-plugins/tooltip/tooltip.ts";
 import type { CustomIndicatorDefinition, IndicatorType } from "../../lib/indicators.ts";
-import type { PineExecutionResult } from "../../lib/pine-script-runtime.ts";
 import { cn } from "../../lib/utils.ts";
 import { api } from "../../services/api.ts";
 import { queryKeys } from "../../services/queries.ts";
@@ -68,7 +67,6 @@ import { NewsOverlay } from "./NewsOverlay.tsx";
 import { ObjectTreePanel } from "./ObjectTreePanel.tsx";
 import { useChallengeLevels } from "./useChallengeLevels.ts";
 import { useIndicators } from "./useIndicators.ts";
-import { usePinePlots } from "./usePinePlots.ts";
 import { useNewsOverlay } from "./useNewsOverlay.ts";
 import { useSlTpDrag } from "./useSlTpDrag.ts";
 import {
@@ -263,7 +261,6 @@ export interface ChartPanelProps {
   indicatorParams?: Record<IndicatorType, Record<string, number>>;
   indicatorCodeOverrides?: Partial<Record<IndicatorType, string>>;
   customIndicators?: CustomIndicatorDefinition[];
-  pineExecution?: PineExecutionResult | null;
   drawingTool: DrawingTool;
   drawings: DrawingLine[];
   onAddDrawing: (d: DrawingLine) => void;
@@ -1143,7 +1140,6 @@ export function ChartPanel({
   indicatorParams,
   indicatorCodeOverrides,
   customIndicators,
-  pineExecution,
   drawingTool,
   drawings,
   onAddDrawing,
@@ -1480,7 +1476,6 @@ export function ChartPanel({
 
 
   useIndicators(chartRef, candleSeriesRef, chartData, activeIndicators, isDark, indicatorParams ?? {} as Record<IndicatorType, Record<string, number>>, indicatorCodeOverrides, customIndicators);
-  usePinePlots(chartRef, candleSeriesRef, chartData, pineExecution ?? null);
 
   const fvgDefinition = customIndicators?.find(
     (item) => item.enabled === true && /\bFVGIndicator\b/.test(item.code),
