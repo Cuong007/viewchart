@@ -1,9 +1,10 @@
 import type { Candle } from "../../services/schemas.ts";
 import type { PineExecutionResult, PineInputMeta } from "./pine-script-runtime.ts";
 
-type WorkerRequest =
-  | { id: number; type: "inputs"; code: string }
-  | { id: number; type: "execute"; code: string; candles: Candle[]; overrides: Record<string, unknown> };
+type WorkerPayload =
+  | { type: "inputs"; code: string }
+  | { type: "execute"; code: string; candles: Candle[]; overrides: Record<string, unknown> };
+type WorkerRequest = WorkerPayload & { id: number };
 type WorkerResponse =
   | { id: number; ok: true; value: PineExecutionResult | PineInputMeta[] }
   | { id: number; ok: false; error: string };
@@ -35,7 +36,7 @@ function getWorker(): Worker {
   return instance;
 }
 
-function request<T>(payload: Omit<WorkerRequest, "id">): Promise<T> {
+function request<T>(payload: WorkerPayload): Promise<T> {
   const id = nextId++;
   return new Promise<T>((resolve, reject) => {
     pending.set(id, { resolve, reject });
