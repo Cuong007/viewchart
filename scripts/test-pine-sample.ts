@@ -15,6 +15,29 @@ const candles = Array.from({ length: 420 }, (_, index) => {
   };
 });
 
+// Overlay metadata must follow PineTS declaration props. EMA/SMA plots from an
+// overlay indicator must share the candle price scale; pane indicators must not.
+const overlayResult = await executePineScript(`
+//@version=5
+indicator("EMA SMA overlay test", overlay=true)
+plot(ta.ema(close, 9), "EMA")
+plot(ta.sma(close, 20), "SMA")
+`, candles);
+if (overlayResult.plots.length !== 2 || overlayResult.plots.some(plot => !plot.overlay)) {
+  throw new Error("Pine overlay=true must be propagated to every EMA/SMA plot");
+}
+if (overlayResult.plots.some(plot => plot.data.length !== candles.length)) {
+  throw new Error("EMA/SMA timestamps must stay aligned one-to-one with chart candles");
+}
+const paneResult = await executePineScript(`
+//@version=5
+indicator("Pane oscillator test", overlay=false)
+plot(ta.ema(close, 9), "Pane EMA")
+`, candles);
+if (paneResult.plots.length !== 1 || paneResult.plots[0].overlay) {
+  throw new Error("Pine overlay=false must keep plots on an independent pane scale");
+}
+
 const inputs = getPineInputs(source);
 if (inputs.length < 5) throw new Error(`Expected Pine inputs to be detected; got ${inputs.length}`);
 
