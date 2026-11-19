@@ -685,7 +685,7 @@ function TradeHistoryTable({ accountId }: { accountId: string | null }) {
           })}
         </tbody>
       </table>
-      {totalPages > 1 && (
+      {!loadedSnapshot && totalPages > 1 && (
         <div className="flex items-center justify-center gap-2 py-1 border-t border-border text-[10px]">
           <button
             onClick={() => setPage(Math.max(1, page - 1))}
