@@ -26,8 +26,15 @@ plot(ta.sma(close, 20), "SMA")
 if (overlayResult.plots.length !== 2 || overlayResult.plots.some(plot => !plot.overlay)) {
   throw new Error("Pine overlay=true must be propagated to every EMA/SMA plot");
 }
-if (overlayResult.plots.some(plot => plot.data.length !== candles.length)) {
-  throw new Error("EMA/SMA timestamps must stay aligned one-to-one with chart candles");
+const candleTimes = new Set(candles.map(candle => candle.time));
+for (const plot of overlayResult.plots) {
+  const times = plot.data.map(point => point.time);
+  if (times.some(time => !candleTimes.has(time)) || times.some((time, index) => index > 0 && time <= times[index - 1])) {
+    throw new Error(`${plot.title} timestamps must map to chart candles in strictly increasing order`);
+  }
+  if (times.at(-1) !== candles.at(-1)?.time) {
+    throw new Error(`${plot.title} must include the latest candle timestamp`);
+  }
 }
 const paneResult = await executePineScript(`
 //@version=5
