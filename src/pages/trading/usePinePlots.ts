@@ -32,8 +32,8 @@ export function usePinePlots(
     // candle's price domain and bind them to the exact same "right" scale as
     // the candles; oscillator values (RSI/MACD etc.) remain on isolated scales.
     const candlePrices = candles.flatMap((bar) => [Number(bar.low), Number(bar.high)]).filter(Number.isFinite);
-    const candleMin = candlePrices.length ? Math.min(...candlePrices) : Number.NaN;
-    const candleMax = candlePrices.length ? Math.max(...candlePrices) : Number.NaN;
+    const candleMin = candlePrices.length ? candlePrices.reduce((min, value) => Math.min(min, value), Number.POSITIVE_INFINITY) : Number.NaN;
+    const candleMax = candlePrices.length ? candlePrices.reduce((max, value) => Math.max(max, value), Number.NEGATIVE_INFINITY) : Number.NaN;
     const candleSpan = candleMax - candleMin;
     const priceDomainMin = candleMin - candleSpan * 0.2;
     const priceDomainMax = candleMax + candleSpan * 0.2;
