@@ -57,8 +57,8 @@ export async function executePineScript(code: string, candles: Candle[]): Promis
       exitTime: isOpen ? Number(candles[candles.length - 1]?.time) * 1000 : Number(trade.exit_time) || 0,
       pnlPoints: (side === "LONG" ? exitPrice - entryPrice : entryPrice - exitPrice) * quantity, isOpen };
   };
-  const closedTrades = closed.map((trade: any, index: number) => mapTrade(trade, index, false));
-  const openTrades = open.map((trade: any, index: number) => mapTrade(trade, closed.length + index, true));
+  const closedTrades: PineTrade[] = closed.map((trade: any, index: number) => mapTrade(trade, index, false));
+  const openTrades: PineTrade[] = open.map((trade: any, index: number) => mapTrade(trade, closed.length + index, true));
   const trades = [...closedTrades, ...openTrades];
   const wins = closedTrades.filter(trade => trade.pnlPoints > 0).length;
   const totalPoints = closedTrades.reduce((sum, trade) => sum + trade.pnlPoints, 0);
