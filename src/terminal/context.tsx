@@ -128,7 +128,10 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
 
   // ── Chart configuration
   const chartPrefs = useChartPreferences();
-  const [activeIndicators, setActiveIndicators] = useState<IndicatorType[]>([]);
+  const [activeIndicators, setActiveIndicators] = useState<IndicatorType[]>(() => {
+    const saved = safeStorage.getJSON<IndicatorType[]>("opencharts_active_indicators", []);
+    return Array.isArray(saved) ? saved.filter((type) => INDICATOR_REGISTRY.some((item) => item.type === type)) : [];
+  });
   const [indicatorParams, setIndicatorParams] = useState<Record<IndicatorType, Record<string, number>>>(() => {
     const defaults = Object.fromEntries(INDICATOR_REGISTRY.map((item) => [item.type, { ...item.defaultParams }])) as Record<IndicatorType, Record<string, number>>;
     try {
@@ -145,11 +148,16 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
     });
   }, []);
   const toggleIndicator = useCallback((type: IndicatorType) => {
-    setActiveIndicators((prev) =>
-      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
-    );
+    setActiveIndicators((prev) => {
+      const next = prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type];
+      safeStorage.setJSON("opencharts_active_indicators", next);
+      return next;
+    });
   }, []);
-  const clearIndicators = useCallback(() => setActiveIndicators([]), []);
+  const clearIndicators = useCallback(() => {
+    safeStorage.setJSON("opencharts_active_indicators", []);
+    setActiveIndicators([]);
+  }, []);
 
   const [activePlugins, setActivePlugins] = useState<string[]>(
     () => getChartPreferencesFromStorage().activePlugins,
