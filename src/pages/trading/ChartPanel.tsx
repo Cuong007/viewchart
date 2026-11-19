@@ -81,7 +81,7 @@ function formatCrosshairDate(time: Time): string {
     ? new Date(time * 1000)
     : new Date(Date.UTC(time.year, time.month - 1, time.day));
   const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0").replace(/[0-9]/g, (digit) => "𝟎𝟏𝟐𝟑𝟒𝟓𝟔𝟕𝟖𝟗"[Number(digit)]!);
   const year = date.getFullYear();
   const hours = String(date.getHours()).padStart(2, "0");
   const minutes = String(date.getMinutes()).padStart(2, "0");
