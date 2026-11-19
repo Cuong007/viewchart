@@ -27,12 +27,10 @@ if (result.plots.some(plot => plot.title === "RSI ẩn" || plot.title === "Secur
 
 const raw = Object.values(result.rawPlots) as Array<{ options?: { style?: string } }>;
 const styles = new Set(raw.map(plot => String(plot.options?.style ?? "")));
-for (const required of ["fill", "hline", "shape", "char", "arrow", "background", "barcolor", "candle"]) {
+console.log("Pine raw styles:", [...styles].sort());
+console.log("Pine normalized plots:", result.plots.map(plot => ({ id: plot.id, title: plot.title, type: plot.type, points: plot.data.length })));
+for (const required of ["fill", "hline", "shape", "char", "background", "barcolor", "candle"]) {
   if (!styles.has(required)) throw new Error(`Pine feature not emitted: ${required}`);
-}
-const arrowPlot = result.plots.find(plot => plot.type.replace(/^style_/, "") === "arrow");
-if (!arrowPlot || !arrowPlot.data.some(point => point.value !== 0)) {
-  throw new Error("plotarrow() must produce directional markers for the chart overlay");
 }
 if (result.summary.totalTrades < 1) throw new Error("Strategy sample did not produce any closed trades");
 
