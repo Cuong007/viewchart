@@ -24,20 +24,12 @@ export function usePinePlots(
     seriesRef.current = [];
     if (!chart || !candleSeries || !container || !execution || chartData.length === 0) return;
 
-    const indexByTime = new Map<number,number>();
-    chartData.forEach((bar,index)=>indexByTime.set(Number(bar.time),index));
-
     for (const plot of execution.plots) {
       const style = plot.type.replace(/^style_/, "");
       if (["shape","char","background","barcolor","bar","candle"].includes(style)) continue;
-      const data = plot.data.flatMap(point => {
-        if (!finite(point.time) || !finite(point.value)) return [];
-        const sourceIndex = indexByTime.get(point.time);
-        const targetIndex = sourceIndex === undefined ? undefined : sourceIndex + (Number(point.offset) || 0);
-        const targetTime = targetIndex === undefined ? point.time : Number(chartData[targetIndex]?.time);
-        if (!Number.isFinite(targetTime)) return [];
-        return [{ time: targetTime as Time, value: point.value, ...(point.color ? { color: point.color } : {}) }];
-      }).sort((a,b) => Number(a.time) - Number(b.time));
+      const data = plot.data.filter(point => finite(point.time) && finite(point.value)).map(point => ({
+        time: point.time as Time, value: point.value, ...(point.color ? { color: point.color } : {}),
+      }));
       if (!data.length) continue;
       const common = { title: plot.title, priceScaleId: "right", lastValueVisible: true, priceLineVisible: false };
       if (style === "area" || style === "areabr") {
@@ -48,22 +40,7 @@ export function usePinePlots(
         series.setData(data); seriesRef.current.push(series);
       } else {
         const width = Math.max(1, Math.min(4, Number(plot.options.linewidth) || 2));
-        const styleName = String(plot.type);
-        const lineStyle = styleName === "hline" || styleName === "style_hline"
-          ? (String(plot.options.linestyle).includes("dotted") ? 1 : String(plot.options.linestyle).includes("dashed") ? 2 : 0)
-          : 0;
-        const lineType = styleName.includes("stepline") ? 1 : 0;
-        const circles = styleName.includes("circles");
-        const series = chart.addLineSeries({
-          ...common,
-          color: plot.color || "#2962ff",
-          lineWidth: width as 1 | 2 | 3 | 4,
-          lineStyle,
-          lineType,
-          crosshairMarkerVisible: false,
-          pointMarkersVisible: circles,
-          pointMarkersRadius: circles ? Math.max(2, width + 1) : 0,
-        });
+        const series = chart.addLineSeries({ ...common, color: plot.color || "#2962ff", lineWidth: width as 1 | 2 | 3 | 4, crosshairMarkerVisible: false });
         series.setData(data); seriesRef.current.push(series);
       }
     }
@@ -76,6 +53,8 @@ export function usePinePlots(
     const timeScale = chart.timeScale();
     const candleByTime = new Map<number,Candle>();
     candles.forEach(c=>candleByTime.set(Number(c.time),c));
+    const indexByTime = new Map<number,number>();
+    chartData.forEach((bar,index)=>indexByTime.set(Number(bar.time),index));
     const xAt = (time:number):number|null => timeScale.timeToCoordinate(time as Time);
     const drawingX = (value:number,xloc:string):number|null => {
       if(xloc.toLowerCase().includes("time")||xloc==="bt") return xAt(value>1e12?Math.floor(value/1000):value);
@@ -113,19 +92,12 @@ export function usePinePlots(
       // fill(plot1, plot2): shade the area between two Pine plot/hline series.
       // PineTS stores fill() as its own plot entry and keeps the source plot keys
       // plus the per-bar fill color in options.
-      const seriesValues = new Map<string,Map<number,number>>();
       const valueAt = (key:string, time:number):number|null => {
-        let values=seriesValues.get(key);
-        if(!values){
-          values=new Map<number,number>();
-          const source=execution.rawPlots[key];
-          if(Array.isArray(source?.data))for(const point of source.data){
-            const value=Number(point?.value),timeKey=rawTime(point.time);
-            if(Number.isFinite(value)&&Number.isFinite(timeKey))values.set(timeKey,value);
-          }
-          seriesValues.set(key,values);
-        }
-        return values.get(time)??null;
+        const source=execution.rawPlots[key];
+        if(!Array.isArray(source?.data))return null;
+        const point=source.data.find((item:AnyRecord)=>rawTime(item.time)===time);
+        const value=Number(point?.value);
+        return Number.isFinite(value)?value:null;
       };
       for(const [fillId,fill] of Object.entries(execution.rawPlots) as [string,AnyRecord][]){
         if(fillId.startsWith("__")||fill?.options?.style!=="fill"||!Array.isArray(fill.data))continue;
