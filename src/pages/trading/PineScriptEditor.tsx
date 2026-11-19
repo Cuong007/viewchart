@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Play, Loader2, AlertCircle, CheckCircle2, Settings2 } from "lucide-react";
+import { Play, Loader2, AlertCircle, CheckCircle2, Settings2, FileCode2 } from "lucide-react";
+import pineFeatureTest from "../../../examples/pine-scripts/opencharts-feature-test.pine?raw";
 import type { Candle } from "../../services/schemas.ts";
 import { safeStorage } from "../../lib/safe-storage.ts";
 import { executePineScript, getPineInputs, type PineExecutionResult, type PineInputMeta } from "../../lib/pine-script-runtime.ts";
@@ -84,7 +85,10 @@ export function PineScriptEditor({ candles, onExecution }: PineScriptEditorProps
   const groups = [...new Set(inputMeta.map(meta => meta.group || ""))];
   return <div className="flex h-full min-h-0 flex-col gap-2 p-3 text-xs">
     <div className="flex flex-wrap items-center justify-between gap-2"><div><div className="font-semibold text-sm">Pine Script Editor</div><p className="text-muted-foreground mt-0.5">Dán mã Pine v5/v6. Tự nhận diện indicator() hoặc strategy(); tự tính lại khi nến thay đổi.</p></div>
-      <button type="button" onClick={run} disabled={running || candles.length < 2} className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 font-medium text-primary-foreground disabled:opacity-50">{running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}{running ? "Đang chạy..." : "Thêm vào biểu đồ / Chạy"}</button></div>
+      <div className="flex items-center gap-2">
+        <button type="button" onClick={() => { setCode(pineFeatureTest); setError(""); }} className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-2 font-medium hover:bg-secondary"><FileCode2 className="h-3.5 w-3.5" />Nạp mã mẫu</button>
+        <button type="button" onClick={run} disabled={running || candles.length < 2} className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 font-medium text-primary-foreground disabled:opacity-50">{running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}{running ? "Đang chạy..." : "Thêm vào biểu đồ / Chạy"}</button>
+      </div></div>
     <textarea value={code} onChange={event => setCode(event.target.value)} spellCheck={false} aria-label="Pine Script source" className="min-h-[150px] flex-1 resize-y rounded-md border border-border bg-background p-3 font-mono text-[11px] leading-5 outline-none focus:border-primary" />
     {inputMeta.length > 0 && <details className="max-h-[190px] shrink-0 overflow-y-auto rounded-md border border-border p-2" open>
       <summary className="flex cursor-pointer list-none items-center gap-2 font-semibold"><Settings2 className="h-3.5 w-3.5" />Tham số chỉ báo / chiến lược ({inputMeta.length})</summary>

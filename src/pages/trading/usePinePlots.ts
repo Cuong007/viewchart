@@ -26,6 +26,12 @@ export function usePinePlots(
 
     const indexByTime = new Map<number,number>();
     chartData.forEach((bar,index)=>indexByTime.set(Number(bar.time),index));
+    const shiftedTime = (time:number, offset:number):number => {
+      const sourceIndex=indexByTime.get(time);
+      if(sourceIndex===undefined||!Number.isFinite(offset)||offset===0)return time;
+      const shifted=Number(chartData[sourceIndex+Math.trunc(offset)]?.time);
+      return Number.isFinite(shifted)?shifted:time;
+    };
 
     for (const plot of execution.plots) {
       const style = plot.type.replace(/^style_/, "");
@@ -120,7 +126,8 @@ export function usePinePlots(
           values=new Map<number,number>();
           const source=execution.rawPlots[key];
           if(Array.isArray(source?.data))for(const point of source.data){
-            const value=Number(point?.value),timeKey=rawTime(point.time);
+            const value=Number(point?.value),sourceTime=rawTime(point.time);
+            const timeKey=shiftedTime(sourceTime,Number(point?.options?.offset)||0);
             if(Number.isFinite(value)&&Number.isFinite(timeKey))values.set(timeKey,value);
           }
           seriesValues.set(key,values);
@@ -134,7 +141,7 @@ export function usePinePlots(
         if(!firstKey||!secondKey)continue;
         const first=execution.rawPlots[firstKey],second=execution.rawPlots[secondKey];
         if(!Array.isArray(first?.data)||!Array.isArray(second?.data))continue;
-        const times=[...new Set<number>(first.data.map((p:AnyRecord)=>rawTime(p.time)).filter((t:number)=>Number.isFinite(t)))].sort((a,b)=>a-b);
+        const times=[...new Set<number>(first.data.map((p:AnyRecord)=>shiftedTime(rawTime(p.time),Number(p?.options?.offset)||0)).filter((t:number)=>Number.isFinite(t)))].sort((a,b)=>a-b);
         for(let index=0;index<times.length-1;index++){
           const t1=times[index]!,t2=times[index+1]!;
           const a1=valueAt(firstKey,t1),b1=valueAt(secondKey,t1),a2=valueAt(firstKey,t2),b2=valueAt(secondKey,t2);
@@ -200,8 +207,9 @@ export function usePinePlots(
         for(const point of plot.data){
           const raw=rawData.find((p:AnyRecord)=>rawTime(p.time)===point.time),options=raw?.options??{};
           if(style==="shape"&&!point.value)continue;
-          const x=xAt(point.time);if(x===null)continue;
-          const bar=candleByTime.get(point.time);const loc=String(options.location??"BelowBar").toLowerCase();
+          const markerTime=shiftedTime(point.time,Number(point.offset)||0);
+          const x=xAt(markerTime);if(x===null)continue;
+          const bar=candleByTime.get(markerTime);const loc=String(options.location??"BelowBar").toLowerCase();
           let y:number|null=loc.includes("above")?(bar?priceY(bar.high):null):loc.includes("below")?(bar?priceY(bar.low):null):loc==="top"?16:loc==="bottom"?height-16:priceY(point.value);
           if(y===null)continue;
           const sizeName=String(options.size??"normal"),size=sizeName==="tiny"?3:sizeName==="small"?4:sizeName==="large"?7:sizeName==="huge"?9:5;
