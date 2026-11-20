@@ -67,9 +67,20 @@ function emit(action: string, opts: { speed?: number; cursorTimestamp?: number }
   publish("market-data", { eventType: "ReplayStateChanged", action, ...opts });
 }
 
-function dayBounds(sessionDate: string): { startMs: number; endMs: number } {
+/**
+ * Resolve the requested local calendar session, never a rolling range through
+ * the present. For today's session, include the currently forming minute with
+ * a small safety margin; for past sessions, stop exactly at next local midnight.
+ */
+export function getReplayDayBounds(
+  sessionDate: string,
+  nowMs = Date.now(),
+): { startMs: number; endMs: number } {
   const startMs = new Date(`${sessionDate}T00:00:00`).getTime();
-  return { startMs, endMs: Date.now() + 60_000 };
+  if (!Number.isFinite(startMs)) throw new Error(`Invalid replay session date: ${sessionDate}`);
+  const nextDay = new Date(startMs);
+  nextDay.setDate(nextDay.getDate() + 1);
+  return { startMs, endMs: Math.min(nextDay.getTime(), nowMs + 60_000) };
 }
 
 function localDateKey(ms: number): string {
@@ -83,7 +94,7 @@ export async function getSession(
   accountId?: string,
 ): Promise<ReplaySessionPayload> {
   const adapter = getAdapter();
-  const { startMs, endMs } = dayBounds(sessionDate);
+  const { startMs, endMs } = getReplayDayBounds(sessionDate);
 
   // A wide fromMs→now request is not reliable across market-data providers:
   // some silently cap it to the latest trading session (often ending at
