@@ -452,16 +452,29 @@ export function BottomPanel({
         {tab === "strategy-tester" && pineExecution?.kind === "strategy" && (
           <div className="space-y-3 p-3 text-xs">
             <div className="font-semibold text-sm">{pineExecution.title} · Strategy Tester</div>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
               {[
                 ["Tổng giao dịch", String(pineExecution.summary.totalTrades)],
+                ["Lệnh đang mở", String(pineExecution.summary.openTrades)],
                 ["Lệnh thắng", String(pineExecution.summary.winningTrades)],
                 ["Lệnh thua", String(pineExecution.summary.losingTrades)],
-                ["Win rate", pineExecution.summary.winRate.toFixed(1) + "%"],
+                ["Tỷ lệ thắng", pineExecution.summary.winRate.toFixed(1) + "%"],
                 ["Tổng P&L", (pineExecution.summary.totalPoints >= 0 ? "+" : "") + pineExecution.summary.totalPoints.toFixed(2) + " điểm"],
-                ["TB / giao dịch", (pineExecution.summary.averagePoints >= 0 ? "+" : "") + pineExecution.summary.averagePoints.toFixed(2) + " điểm"],
+                ["Lợi nhuận TB / lệnh", (pineExecution.summary.averagePoints >= 0 ? "+" : "") + pineExecution.summary.averagePoints.toFixed(2) + " điểm"],
+                ["Sụt giảm tối đa", pineExecution.summary.maxDrawdownPoints.toFixed(2) + " điểm"],
+                ["Lệnh thắng lớn nhất", "+" + pineExecution.summary.largestWinningTradePoints.toFixed(2) + " điểm"],
+                ["Lệnh thua lớn nhất", pineExecution.summary.largestLosingTradePoints.toFixed(2) + " điểm"],
+                ["Chuỗi thắng dài nhất", String(pineExecution.summary.maxConsecutiveWins) + " lệnh"],
+                ["Chuỗi thua dài nhất", String(pineExecution.summary.maxConsecutiveLosses) + " lệnh"],
+                ["Tổng lãi", "+" + pineExecution.summary.grossProfitPoints.toFixed(2) + " điểm"],
+                ["Tổng lỗ", "-" + pineExecution.summary.grossLossPoints.toFixed(2) + " điểm"],
+                ["Profit factor", Number.isFinite(pineExecution.summary.profitFactor) ? pineExecution.summary.profitFactor.toFixed(2) : "∞"],
+                ["Expectancy", (pineExecution.summary.expectancyPoints >= 0 ? "+" : "") + pineExecution.summary.expectancyPoints.toFixed(2) + " điểm/lệnh"],
+                ["Lãi TB / lệnh thắng", "+" + pineExecution.summary.averageWinningTradePoints.toFixed(2) + " điểm"],
+                ["Lỗ TB / lệnh thua", pineExecution.summary.averageLosingTradePoints.toFixed(2) + " điểm"],
               ].map(([label, value]) => <div key={label} className="rounded-md border border-border p-2"><div className="text-muted-foreground">{label}</div><div className="mt-1 font-mono font-semibold">{value}</div></div>)}
             </div>
+            <p className="text-[10px] text-muted-foreground">Sụt giảm tối đa tính theo đường vốn tích lũy từ các lệnh đã đóng, chưa quy đổi phí/hoa hồng/slippage nếu mã Pine không mô phỏng các chi phí đó.</p>
             <div className="overflow-x-auto rounded-md border border-border">
               <table className="w-full text-left"><thead className="bg-secondary text-muted-foreground"><tr>{["#", "Loại", "SL", "Giá vào", "Giá đóng", "P&L (điểm)"].map(label => <th key={label} className="px-2 py-2">{label}</th>)}</tr></thead>
                 <tbody>{pineExecution.trades.map((trade, index) => <tr key={trade.id + index} className="border-t border-border"><td className="px-2 py-2">{index + 1}</td><td className="px-2 py-2">{trade.side}{trade.isOpen ? " (Mở)" : ""}</td><td className="px-2 py-2 font-mono">{trade.quantity}</td><td className="px-2 py-2 font-mono">{trade.entryPrice}</td><td className="px-2 py-2 font-mono">{trade.isOpen ? "—" : trade.exitPrice}</td><td className={"px-2 py-2 font-mono " + (trade.pnlPoints >= 0 ? "text-emerald-600" : "text-red-500")}>{trade.pnlPoints >= 0 ? "+" : ""}{trade.pnlPoints.toFixed(2)}</td></tr>)}
