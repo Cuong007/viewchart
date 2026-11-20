@@ -53,6 +53,7 @@ jobs:
             scripts/test-replay-session.ts \
             src/__tests__/dnse-adapter.test.ts \
             src/__tests__/pine-strategy-stats.test.ts \
+            src/__tests__/adapter.test.tsx \
             src/services/queries.ts \
             src/services/api.ts \
             src/services/store.tsx \
@@ -87,11 +88,7 @@ jobs:
 
       - name: Restore OpenCharts app feature overrides
         run: |
-          # The upstream import intentionally refreshes the base project. Restore
-          # our maintained feature files afterwards so replay/indicator changes
-          # are actually included in the APK instead of being silently discarded.
           cp -a /tmp/viewchart-overrides/. ./
-          # Fail with an explicit diagnostic only if the Binance override was not restored.
           test -f examples/binance-adapter/binance-adapter.ts || { echo "::error::Binance adapter file missing after restore"; exit 1; }
           grep -Fq 'PAXGUSDT' examples/binance-adapter/binance-adapter.ts || { echo "::error::PAXGUSDT mapping missing after restore"; exit 1; }
           grep -Fq 'PAXGUSD' examples/binance-adapter/binance-adapter.ts || { echo "::error::PAXGUSD display symbol missing after restore"; exit 1; }
@@ -165,8 +162,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # The source import can take several minutes. Rebase its generated
-          # files onto the latest workflow/patch commits before pushing.
           git fetch origin main
           git reset --soft origin/main
           git checkout origin/main -- .github
