@@ -753,7 +753,7 @@ export function __resetForTests(): void {
   closed.length = 0;
   fills.length = 0;
   lastPrice.clear();
-  replayControlledSymbols.clear();
+  replayClosePrices.clear();
   account.balance = STARTING_BALANCE;
   account.equity = STARTING_BALANCE;
   account.margin = 0;
