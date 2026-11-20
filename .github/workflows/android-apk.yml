@@ -50,6 +50,7 @@ jobs:
             src/pages/trading/useReplayChartData.ts \
             src/services/replay.ts \
             scripts/test-replay-session.ts \
+            src/__tests__/dnse-adapter.test.ts \
             src/services/queries.ts \
             src/services/api.ts \
             src/services/store.tsx \
