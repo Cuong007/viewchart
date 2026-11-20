@@ -58,7 +58,7 @@ const closed: ClosedPosition[] = [];
 const fills: Fill[] = [];
 const lastPrice = new Map<string, number>();
 // Symbols controlled by Bar Replay must never be overwritten by live market ticks.
-const replayControlledSymbols = new Set<string>();
+const replayClosePrices = new Map<string, number>();
 
 const ENGINE_STORAGE_KEY = "opencharts_paper_engine_v1";
 type PersistedEngineState = {
@@ -96,7 +96,7 @@ function restoreEngineState(): void {
       if (typeof symbol === "string" && Number.isFinite(price)) lastPrice.set(symbol, price);
     }
   }
-  replayControlledSymbols.clear();
+  replayClosePrices.clear();
   recomputeEquity();
 }
 
@@ -396,7 +396,7 @@ export function closePosition(positionId: string, quantity?: number): { success:
     qty = Math.min(quantity, pos.quantity);
   }
 
-  const price = lastPrice.get(pos.symbolName) ?? pos.currentPrice ?? pos.entryPrice;
+  const price = replayClosePrices.get(pos.symbolName) ?? lastPrice.get(pos.symbolName) ?? pos.currentPrice ?? pos.entryPrice;
   closeAt(pos, qty, price);
   settle();
   return { success: true };
@@ -405,7 +405,7 @@ export function closePosition(positionId: string, quantity?: number): { success:
 export function closeAllPositions(): { success: boolean } {
   if (positions.length === 0) return { success: true };
   for (const p of [...positions]) {
-    const price = lastPrice.get(p.symbolName) ?? p.currentPrice ?? p.entryPrice;
+    const price = replayClosePrices.get(p.symbolName) ?? lastPrice.get(p.symbolName) ?? p.currentPrice ?? p.entryPrice;
     closeAt(p, p.quantity, price);
   }
   settle();
@@ -730,22 +730,20 @@ function applyMark(symbol: string, price: number): void {
   if (changed) settle();
 }
 
-/** Live feed updates are ignored for a symbol while Bar Replay owns its price. */
+/** Live market prices remain authoritative for current price and floating P&L. */
 export function mark(symbol: string, price: number): void {
-  if (replayControlledSymbols.has(symbol)) return;
   applyMark(symbol, price);
 }
 
-/** Set the authoritative historical price and run fills, P&L and SL/TP at that price. */
-export function markReplay(symbol: string, price: number): void {
+/** Replay candle close is used only if the user closes a position during replay. */
+export function setReplayClosePrice(symbol: string, price: number): void {
   if (!Number.isFinite(price) || price <= 0) return;
-  replayControlledSymbols.add(symbol);
-  applyMark(symbol, price);
+  replayClosePrices.set(symbol, price);
 }
 
-/** Release replay price ownership when playback stops or the session changes. */
+/** Clear replay close overrides when playback stops or the session changes. */
 export function clearReplayPrices(): void {
-  replayControlledSymbols.clear();
+  replayClosePrices.clear();
 }
 
 /** Test seam: reset every engine mutable so suites start from a clean account. */
