@@ -52,6 +52,7 @@ jobs:
             src/__tests__/engine.test.ts \
             scripts/test-replay-session.ts \
             src/__tests__/dnse-adapter.test.ts \
+            src/__tests__/pine-strategy-stats.test.ts \
             src/services/queries.ts \
             src/services/api.ts \
             src/services/store.tsx \
