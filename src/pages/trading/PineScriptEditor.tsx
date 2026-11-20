@@ -3,7 +3,7 @@ import { Play, Loader2, AlertCircle, CheckCircle2, FileCode2, Plus, Pencil, Tras
 import pineFeatureTest from "../../../examples/pine-scripts/opencharts-feature-test.pine?raw";
 import type { Candle } from "../../services/schemas.ts";
 import { safeStorage } from "../../lib/safe-storage.ts";
-import type { PineExecutionResult, PineInputMeta } from "../../lib/pine-script-runtime.ts";
+import { summarizePineTrades, type PineExecutionResult, type PineInputMeta } from "../../lib/pine-script-runtime.ts";
 import { executePineScriptInWorker, getPineInputsInWorker } from "../../lib/pine-script-worker-client.ts";
 
 const STORAGE_KEY = "opencharts_pine_script_source_v1";
@@ -56,20 +56,12 @@ function combineExecutions(items: Array<{ id: string; result: PineExecutionResul
   }
   const strategies = items.filter(item => item.result.kind === "strategy");
   const trades = items.flatMap(({ id, result }) => result.trades.map(trade => ({ ...trade, id: id + "::" + trade.id })));
-  const closed = strategies.reduce((sum, item) => sum + item.result.summary.totalTrades, 0);
-  const wins = strategies.reduce((sum, item) => sum + item.result.summary.winningTrades, 0);
-  const totalPoints = strategies.reduce((sum, item) => sum + item.result.summary.totalPoints, 0);
   return {
     kind: strategies.length ? "strategy" : "indicator",
     title: items.map(item => item.result.title).join(" + "),
     version: Math.max(...items.map(item => item.result.version)),
     plots, rawPlots, trades,
-    summary: {
-      totalTrades: closed, winningTrades: wins,
-      losingTrades: strategies.reduce((sum, item) => sum + item.result.summary.losingTrades, 0),
-      winRate: closed ? wins / closed * 100 : 0,
-      totalPoints, averagePoints: closed ? totalPoints / closed : 0,
-    },
+    summary: summarizePineTrades(trades),
     warnings: items.flatMap(item => item.result.warnings),
   };
 }
@@ -223,6 +215,7 @@ export function PineScriptEditor({ candles, onExecution }: PineScriptEditorProps
     publish(nextResults, next);
   };
 
+  const applyInputs = () => { void saveAndRun(); };
   const updateInput = (meta: PineInputMeta, raw: string | boolean) => {
     let value: unknown = raw;
     if (typeof raw === "string" && (meta.type === "int" || meta.type === "float" || meta.type === "price")) value = raw === "" ? meta.defval : Number(raw);
@@ -272,7 +265,7 @@ export function PineScriptEditor({ candles, onExecution }: PineScriptEditorProps
 
     {inputMeta.length>0 && <section className="shrink-0 rounded-md border border-border">
       <button type="button" onClick={()=>setShowSettings(v=>!v)} className="flex w-full items-center justify-between px-3 py-2 text-left font-semibold"><span className="inline-flex items-center gap-2"><SlidersHorizontal className="h-3.5 w-3.5"/>Thay đổi thông số ({inputMeta.length})</span><span className="text-muted-foreground">{showSettings?"Thu gọn":"Mở rộng"}</span></button>
-      {showSettings && <div className="max-h-[230px] overflow-y-auto border-t border-border p-2"><div className="space-y-2">{groups.map(group=><section key={group}><div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{group||"Thông số"}</div>{inputMeta.filter(meta=>(meta.group||"")===group).map(renderInput)}</section>)}</div><p className="mt-2 text-[10px] text-muted-foreground">Thay đổi thông số xong nhấn “Lưu sửa & áp dụng” để cập nhật chỉ báo trên biểu đồ.</p></div>}
+      {showSettings && <div className="border-t border-border p-2"><div className="max-h-[230px] space-y-2 overflow-y-auto">{groups.map(group=><section key={group}><div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{group||"Thông số"}</div>{inputMeta.filter(meta=>(meta.group||"")===group).map(renderInput)}</section>)}</div><div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2"><p className="text-[10px] text-muted-foreground">Thông số chỉ thay đổi trên biểu đồ sau khi áp dụng.</p><button type="button" onClick={applyInputs} disabled={running || candles.length<2} className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 font-medium text-primary-foreground disabled:opacity-50">{running?<Loader2 className="h-3.5 w-3.5 animate-spin"/>:<Play className="h-3.5 w-3.5"/>}{running?"Đang áp dụng...":"Áp dụng thông số vào biểu đồ"}</button></div></div>}
     </section>}
     {error && <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-2 text-destructive"><AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0"/><span>{error}</span></div>}
     {result && <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border border-emerald-500/30 bg-emerald-500/5 p-2"><span className="inline-flex items-center gap-1 font-medium text-emerald-600"><CheckCircle2 className="h-3.5 w-3.5"/>{result.kind==="strategy"?"Strategy":"Indicator"}: {result.title}</span><span className="text-muted-foreground">Pine v{result.version}</span><span className="text-muted-foreground">{result.plots.length} plot</span>{result.kind==="strategy"&&<span className="text-muted-foreground">{result.summary.totalTrades} giao dịch · {result.summary.totalPoints>=0?"+":""}{result.summary.totalPoints.toFixed(2)} điểm</span>}</div>}
