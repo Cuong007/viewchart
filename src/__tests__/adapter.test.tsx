@@ -67,8 +67,11 @@ describe("terminal composition", () => {
 
     // React logs the error it re-throws; keep the test output readable.
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
-    expect(() => render(<OrderTicket />)).toThrow(/TerminalProvider/);
-    spy.mockRestore();
+    try {
+      expect(() => render(<OrderTicket />)).toThrow(/TerminalProvider/);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it("shares one symbol across independently mounted panels", async () => {
@@ -81,8 +84,13 @@ describe("terminal composition", () => {
     setAdapter(createDemoAdapter());
     useTradingStore.setState({ selectedSymbol: "ETHUSD", activeAccountId: "demo" });
 
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false, gcTime: Infinity, staleTime: Infinity },
+        mutations: { gcTime: Infinity },
+      },
+    });
+    const view = render(
       <QueryClientProvider client={client}>
         <TerminalProvider>
           <OrderTicket />
@@ -90,7 +98,15 @@ describe("terminal composition", () => {
       </QueryClientProvider>,
     );
 
-    // The ticket reads the charted symbol from the provider, not from props.
-    await waitFor(() => expect(screen.getByText(/ETHUSD/)).toBeInTheDocument());
+    try {
+      // The ticket reads the charted symbol from the provider, not from props.
+      await waitFor(() => expect(screen.getByText(/ETHUSD/)).toBeInTheDocument());
+    } finally {
+      view.unmount();
+      client.clear();
+      // Let React Query's already-scheduled notifyManager callback drain
+      // while the jsdom environment is still alive.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
   });
 });
