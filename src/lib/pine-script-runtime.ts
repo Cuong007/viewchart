@@ -14,9 +14,42 @@ export function getPineInputs(code: string): PineInputMeta[] {
 }
 export interface PineExecutionResult {
   kind: PineProgramKind; title: string; version: number; plots: PinePlot[]; rawPlots: Record<string, any>; trades: PineTrade[];
-  summary: { totalTrades: number; winningTrades: number; losingTrades: number; winRate: number; totalPoints: number; averagePoints: number; };
+  summary: { totalTrades: number; winningTrades: number; losingTrades: number; winRate: number; totalPoints: number; averagePoints: number; maxDrawdownPoints: number; largestWinningTradePoints: number; largestLosingTradePoints: number; maxConsecutiveWins: number; maxConsecutiveLosses: number; grossProfitPoints: number; grossLossPoints: number; profitFactor: number; expectancyPoints: number; averageWinningTradePoints: number; averageLosingTradePoints: number; openTrades: number; };
   warnings: string[];
 }
+export function summarizePineTrades(trades: PineTrade[]) {
+  const closed = trades.filter(trade => !trade.isOpen);
+  const wins = closed.filter(trade => trade.pnlPoints > 0);
+  const losses = closed.filter(trade => trade.pnlPoints < 0);
+  const grossProfitPoints = wins.reduce((sum, trade) => sum + trade.pnlPoints, 0);
+  const grossLossPoints = Math.abs(losses.reduce((sum, trade) => sum + trade.pnlPoints, 0));
+  let equity = 0, peak = 0, maxDrawdownPoints = 0, winStreak = 0, lossStreak = 0;
+  let maxConsecutiveWins = 0, maxConsecutiveLosses = 0;
+  for (const trade of [...closed].sort((a, b) => a.exitTime - b.exitTime)) {
+    equity += trade.pnlPoints;
+    peak = Math.max(peak, equity);
+    maxDrawdownPoints = Math.max(maxDrawdownPoints, peak - equity);
+    if (trade.pnlPoints > 0) { winStreak++; lossStreak = 0; maxConsecutiveWins = Math.max(maxConsecutiveWins, winStreak); }
+    else if (trade.pnlPoints < 0) { lossStreak++; winStreak = 0; maxConsecutiveLosses = Math.max(maxConsecutiveLosses, lossStreak); }
+    else { winStreak = 0; lossStreak = 0; }
+  }
+  const totalPoints = closed.reduce((sum, trade) => sum + trade.pnlPoints, 0);
+  const totalTrades = closed.length;
+  return {
+    totalTrades, winningTrades: wins.length, losingTrades: losses.length,
+    winRate: totalTrades ? wins.length / totalTrades * 100 : 0,
+    totalPoints, averagePoints: totalTrades ? totalPoints / totalTrades : 0,
+    maxDrawdownPoints, largestWinningTradePoints: wins.length ? Math.max(...wins.map(t => t.pnlPoints)) : 0,
+    largestLosingTradePoints: losses.length ? Math.min(...losses.map(t => t.pnlPoints)) : 0,
+    maxConsecutiveWins, maxConsecutiveLosses, grossProfitPoints, grossLossPoints,
+    profitFactor: grossLossPoints ? grossProfitPoints / grossLossPoints : (grossProfitPoints ? Number.POSITIVE_INFINITY : 0),
+    expectancyPoints: totalTrades ? totalPoints / totalTrades : 0,
+    averageWinningTradePoints: wins.length ? grossProfitPoints / wins.length : 0,
+    averageLosingTradePoints: losses.length ? losses.reduce((sum, t) => sum + t.pnlPoints, 0) / losses.length : 0,
+    openTrades: trades.filter(trade => trade.isOpen).length,
+  };
+}
+
 export function detectPineProgram(code: string): { kind: PineProgramKind; version: number; title: string } {
   const versionMatch = code.match(/^\s*\/\/@version\s*=\s*(\d+)/m);
   const declaration = code.match(/\b(indicator|strategy)\s*\(\s*(?:"([^"]*)"|'([^']*)')?/);
@@ -119,11 +152,9 @@ export async function executePineScript(code: string, candles: Candle[], inputOv
   const closedTrades: PineTrade[] = closed.map((trade: any, index: number) => mapTrade(trade, index, false));
   const openTrades: PineTrade[] = open.map((trade: any, index: number) => mapTrade(trade, closed.length + index, true));
   const trades = [...closedTrades, ...openTrades];
-  const wins = closedTrades.filter(trade => trade.pnlPoints > 0).length;
-  const totalPoints = closedTrades.reduce((sum, trade) => sum + trade.pnlPoints, 0);
   return {
     ...program, plots: normalizePlots((context as any)?.plots, (context as any)?.indicator?.overlay === true), rawPlots: (context as any)?.plots ?? {}, trades,
-    summary: { totalTrades: closedTrades.length, winningTrades: wins, losingTrades: closedTrades.filter(trade => trade.pnlPoints < 0).length, winRate: closedTrades.length ? wins / closedTrades.length * 100 : 0, totalPoints, averagePoints: closedTrades.length ? totalPoints / closedTrades.length : 0 },
+    summary: summarizePineTrades(trades),
     warnings: Array.isArray((context as any)?.warnings) ? (context as any).warnings.map((warning: any) => String(warning?.message ?? warning)) : [],
   };
 }
