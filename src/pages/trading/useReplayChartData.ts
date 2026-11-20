@@ -3,7 +3,7 @@ import { api } from "../../services/api.ts";
 import { useReplaySession } from "../../services/queries.ts";
 import type { Candle } from "../../services/schemas.ts";
 import { useTradingStore } from "../../services/store.tsx";
-import { clearReplayPrices, markReplay } from "../../services/demo/engine.ts";
+import { clearReplayPrices, setReplayClosePrice } from "../../services/demo/engine.ts";
 import { toast } from "../../services/toast.ts";
 import { TF_INTERVAL_MS, type Timeframe } from "./constants.ts";
 
@@ -96,7 +96,7 @@ export function useReplayChartData(accountId: string | null, timeframe: Timefram
 
   useEffect(() => {
     if (!isReplaying || replayPrice == null) return;
-    markReplay(selectedSymbol, replayPrice);
+    setReplayClosePrice(selectedSymbol, replayPrice);
   }, [isReplaying, replayPrice, selectedSymbol]);
 
   // Release replay price ownership when playback stops.
