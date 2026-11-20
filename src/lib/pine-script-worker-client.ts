@@ -11,7 +11,9 @@ type WorkerResponse =
 
 let worker: Worker | null = null;
 let nextId = 1;
-const pending = new Map<number, { resolve: (value: any) => void; reject: (reason: Error) => void }>();
+const REQUEST_TIMEOUT_MS = 60_000;
+type PendingTask = { resolve: (value: any) => void; reject: (reason: Error) => void; timer: ReturnType<typeof setTimeout> };
+const pending = new Map<number, PendingTask>();
 
 function getWorker(): Worker {
   if (worker) return worker;
@@ -20,12 +22,13 @@ function getWorker(): Worker {
     const response = event.data;
     const task = pending.get(response.id);
     if (!task) return;
+    clearTimeout(task.timer);
     pending.delete(response.id);
     if (response.ok) task.resolve(response.value);
     else task.reject(new Error(response.error));
   };
   const failAll = (message: string) => {
-    for (const task of pending.values()) task.reject(new Error(message));
+    for (const task of pending.values()) { clearTimeout(task.timer); task.reject(new Error(message)); }
     pending.clear();
     instance.terminate();
     if (worker === instance) worker = null;
@@ -39,10 +42,23 @@ function getWorker(): Worker {
 function request<T>(payload: WorkerPayload): Promise<T> {
   const id = nextId++;
   return new Promise<T>((resolve, reject) => {
-    pending.set(id, { resolve, reject });
+    const timer = setTimeout(() => {
+      const instance = worker;
+      if (instance) {
+        for (const task of pending.values()) { clearTimeout(task.timer); task.reject(new Error("PineTS chạy quá 60 giây và đã bị dừng. Hãy giảm số nến hoặc đơn giản hóa mã chiến lược rồi thử lại.")); }
+        pending.clear();
+        instance.terminate();
+        worker = null;
+      } else {
+        pending.delete(id);
+        reject(new Error("PineTS chạy quá 60 giây. Hãy giảm số nến hoặc đơn giản hóa mã chiến lược rồi thử lại."));
+      }
+    }, REQUEST_TIMEOUT_MS);
+    pending.set(id, { resolve, reject, timer });
     try {
       getWorker().postMessage({ ...payload, id } as WorkerRequest);
     } catch (error) {
+      clearTimeout(timer);
       pending.delete(id);
       reject(error instanceof Error ? error : new Error(String(error)));
     }
