@@ -71,6 +71,7 @@ export function PineScriptEditor({ candles, onExecution }: PineScriptEditorProps
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [code, setCode] = useState(() => safeStorage.getItem(STORAGE_KEY) || DEFAULT_SOURCE);
   const [running, setRunning] = useState(false);
+  const runningRef = useRef(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<PineExecutionResult | null>(null);
   const [inputMeta, setInputMeta] = useState<PineInputMeta[]>([]);
@@ -116,8 +117,9 @@ export function PineScriptEditor({ candles, onExecution }: PineScriptEditorProps
   };
 
   const runEnabled = async (list: SavedPineIndicator[], candleSet = candles, showSpinner = false) => {
+    if (runningRef.current && !showSpinner) return;
     const sequence = ++runSequence.current;
-    if (showSpinner) { setRunning(true); setError(""); }
+    if (showSpinner) { runningRef.current = true; setRunning(true); setError(""); }
     try {
       const nextResults = { ...resultsRef.current };
       for (const item of list.filter(entry => entry.enabled)) {
@@ -135,13 +137,14 @@ export function PineScriptEditor({ candles, onExecution }: PineScriptEditorProps
       if (sequence !== runSequence.current) return;
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
-      if (sequence === runSequence.current && showSpinner) setRunning(false);
+      if (showSpinner && sequence === runSequence.current) { runningRef.current = false; setRunning(false); }
     }
   };
 
   useEffect(() => {
     if (!indicators.some(item => item.enabled) || candles.length < 2) return;
     if (timer.current) clearTimeout(timer.current);
+    if (runningRef.current) return;
     timer.current = setTimeout(() => { void runEnabled(indicatorsRef.current, candles, false); }, 350);
     return () => { if (timer.current) clearTimeout(timer.current); };
   // Candle arrays are refreshed as live data changes; rerun the enabled Pine scripts on the latest bars.
@@ -179,6 +182,7 @@ export function PineScriptEditor({ candles, onExecution }: PineScriptEditorProps
     setSelectedId(id);
     safeStorage.setItem(STORAGE_KEY, code);
     const sequence = ++runSequence.current;
+    runningRef.current = true;
     setRunning(true); setError("");
     try {
       const value = await executeOne(item);
@@ -190,7 +194,7 @@ export function PineScriptEditor({ candles, onExecution }: PineScriptEditorProps
     } catch (cause) {
       if (sequence !== runSequence.current) return;
       setError(cause instanceof Error ? cause.message : String(cause));
-    } finally { if (sequence === runSequence.current) setRunning(false); }
+    } finally { if (sequence === runSequence.current) { runningRef.current = false; setRunning(false); } }
   };
 
   const toggleEnabled = async (item: SavedPineIndicator) => {
