@@ -152,6 +152,8 @@ export function PineScriptEditor({ candles, onExecution }: PineScriptEditorProps
 
   const newIndicator = () => {
     runSequence.current++;
+    runningRef.current = false;
+    setRunning(false);
     setSelectedId(null);
     setCode(DEFAULT_SOURCE);
     setInputValues({});
@@ -162,6 +164,8 @@ export function PineScriptEditor({ candles, onExecution }: PineScriptEditorProps
 
   const selectIndicator = (item: SavedPineIndicator) => {
     runSequence.current++;
+    runningRef.current = false;
+    setRunning(false);
     setSelectedId(item.id);
     setCode(item.code);
     setInputValues({ ...item.inputs });
@@ -265,7 +269,7 @@ export function PineScriptEditor({ candles, onExecution }: PineScriptEditorProps
         <button type="button" onClick={saveAndRun} disabled={running || candles.length<2} className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 font-medium text-primary-foreground disabled:opacity-50">{running?<Loader2 className="h-3.5 w-3.5 animate-spin"/>:<><Save className="h-3.5 w-3.5"/><Play className="h-3.5 w-3.5"/></>}{running?"Đang chạy...":selected?"Lưu sửa & áp dụng":"Thêm vào biểu đồ"}</button>
       </div>
     </div>
-    <textarea value={code} onChange={event=>{runSequence.current++;setRunning(false);setCode(event.target.value);}} spellCheck={false} aria-label="Pine Script source" className="min-h-[130px] w-full shrink-0 resize-y rounded-md border border-border bg-background p-3 font-mono text-[11px] leading-5 outline-none focus:border-primary"/>
+    <textarea value={code} onChange={event=>{runSequence.current++;runningRef.current=false;setRunning(false);setCode(event.target.value);}} spellCheck={false} aria-label="Pine Script source" className="min-h-[130px] w-full shrink-0 resize-y rounded-md border border-border bg-background p-3 font-mono text-[11px] leading-5 outline-none focus:border-primary"/>
 
     {inputMeta.length>0 && <section className="shrink-0 rounded-md border border-border">
       <button type="button" onClick={()=>setShowSettings(v=>!v)} className="flex w-full items-center justify-between px-3 py-2 text-left font-semibold"><span className="inline-flex items-center gap-2"><SlidersHorizontal className="h-3.5 w-3.5"/>Thay đổi thông số ({inputMeta.length})</span><span className="text-muted-foreground">{showSettings?"Thu gọn":"Mở rộng"}</span></button>
