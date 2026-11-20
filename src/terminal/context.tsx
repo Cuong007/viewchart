@@ -330,12 +330,28 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
 
   const { data: positions = [] } = usePositions(activeAccountId);
   const { data: orders = [] } = useOrders(activeAccountId);
-  // Replay controls the chart cursor only. Position current price and floating
-  // P&L continue to follow live market data; closing uses a separate replay override.
+  // The raw 1m replay price, not the aggregated chart candle or live tick,
+  // is the single source of truth for position marks and floating P&L.
   const replayMark = isReplaying && replayPrice != null && Number.isFinite(replayPrice) && replayPrice > 0
     ? replayPrice
     : null;
-  const displayPositions = positions;
+  const normalizeSymbol = (value: string) => value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const displayPositions = useMemo(() => {
+    if (replayMark == null) return positions;
+    const replaySymbolKey = normalizeSymbol(selectedSymbol);
+    return positions.map((position) => {
+      if (normalizeSymbol(position.symbolName) !== replaySymbolKey) return position;
+      const direction = ["LONG", "BUY"].includes(String(position.side).toUpperCase()) ? 1 : -1;
+      const contractSize = position.contractSize ?? symbols.find((item) =>
+        normalizeSymbol(item.name) === replaySymbolKey
+      )?.contractSize ?? 1;
+      return {
+        ...position,
+        currentPrice: replayMark,
+        unrealizedPnl: (replayMark - position.entryPrice) * position.quantity * contractSize * direction,
+      };
+    });
+  }, [positions, replayMark, selectedSymbol, symbols]);
   const positionPnl = useMemo(
     () => displayPositions.reduce((sum, position) => sum + (position.unrealizedPnl || 0), 0),
     [displayPositions],
