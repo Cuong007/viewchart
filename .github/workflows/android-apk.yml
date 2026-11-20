@@ -49,6 +49,7 @@ jobs:
             src/pages/trading/useReplayPlayback.ts \
             src/pages/trading/useReplayChartData.ts \
             src/services/replay.ts \
+            scripts/test-replay-session.ts \
             src/services/queries.ts \
             src/services/api.ts \
             src/services/store.tsx \
@@ -138,6 +139,9 @@ jobs:
 
       - name: Smoke test Pine Script sample with PineTS
         run: npx tsx scripts/test-pine-sample.ts
+
+      - name: Smoke test replay session date boundaries
+        run: npx tsx scripts/test-replay-session.ts
 
       - name: Build web app (Binance live market data + paper trading)
         env:
