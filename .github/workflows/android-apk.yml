@@ -133,8 +133,7 @@ jobs:
           EOF
           npx cap add android
 
-      - name: Run upstream test suite (non-blocking for APK packaging)
-        continue-on-error: true
+      - name: Run full automated test suite
         run: npm run test
 
       - name: Smoke test Pine Script sample with PineTS
@@ -143,7 +142,7 @@ jobs:
       - name: Smoke test replay session date boundaries
         run: npx tsx scripts/test-replay-session.ts
 
-      - name: Build web app (Binance live market data + paper trading)
+      - name: Build web app (DNSE VN30F1M + Binance market data + paper trading)
         env:
           VITE_ADAPTER: dnse
           VITE_CSP_EXTRA_CONNECT: "https://api.binance.com https://data-api.binance.vision https://stream.binance.com:9443 wss://stream.binance.com:9443 wss://datafeed-krx.dnse.com.vn"
