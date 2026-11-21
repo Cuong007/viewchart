@@ -3,7 +3,8 @@ import { createDemoAdapter } from "./adapter/demo.ts";
 import { OpenChartsProvider } from "./adapter/provider.tsx";
 import type { OpenChartsAdapter } from "./adapter/types.ts";
 import { chooseAdapter } from "./adapterChoice.ts";
-import { Terminal } from "./terminal/Terminal.tsx";
+import { BasicTerminal } from "./terminal/BasicTerminal.tsx";
+const Terminal = lazy(() => import("./terminal/Terminal.tsx").then((m) => ({ default: m.Terminal })));
 import { BasicTerminal } from "./terminal/BasicTerminal.tsx";
 
 /**
@@ -45,7 +46,7 @@ function BinanceOrDemo() {
   useEffect(() => {
     if (!wantsBinance && !wantsDnse) return;
     const loadAdapter = wantsDnse
-      ? import("../examples/dnse-adapter/dnse-adapter.ts").then(({ createDnsePaperAdapter }) => createDnsePaperAdapter())
+      ? import("../examples/dnse-adapter/dnse-adapter.ts").then(({ createDnseMarketDataAdapter }) => createDnseMarketDataAdapter())
       : import("../examples/binance-adapter/binance-adapter.ts").then(({ createBinancePaperAdapter }) => createBinancePaperAdapter());
     loadAdapter
       .then(setAdapter)
@@ -58,7 +59,7 @@ function BinanceOrDemo() {
   if (!adapter) return null;
   return (
     <OpenChartsProvider adapter={adapter}>
-      {import.meta.env.VITE_BASIC_CHART === "1" ? <BasicTerminal /> : <Terminal />}
+      {import.meta.env.VITE_BASIC_CHART === "1" ? <BasicTerminal /> : {import.meta.env.VITE_BASIC_CHART === "1" ? <BasicTerminal /> : <Terminal /> }}
     </OpenChartsProvider>
   );
 }
