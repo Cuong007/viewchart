@@ -136,3 +136,9 @@ export async function createDnsePaperAdapter():Promise<OpenChartsAdapter>{
   const marketData=createDnseMarketData(),paper=createDemoAdapter();marketData.subscribe(e=>{if(e.type==="tick")engine.mark(e.symbol,(e.bid+e.ask)/2);});
   return{name:"dnse-vn30-and-binance-paper",marketData,trading:paper.trading,storage:paper.storage};
 }
+
+
+/** Read-only DNSE source: no paper-trading engine or trading gateway is created. */
+export async function createDnseMarketDataAdapter(): Promise<OpenChartsAdapter> {
+  return { name: "dnse-vn30-market-data", marketData: createDnseMarketData() };
+}
