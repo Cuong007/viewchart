@@ -140,6 +140,7 @@ jobs:
           git reset --soft origin/basic-chart-v1
           git checkout origin/basic-chart-v1 -- .github
           git add -A
+          git reset -- 'basic-chart-v*.apk'
           if ! git diff --cached --quiet; then
             git commit -m "Refresh upstream chart source for Basic Chart"
             git push origin HEAD:basic-chart-v1
