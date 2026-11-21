@@ -4,6 +4,7 @@ import { OpenChartsProvider } from "./adapter/provider.tsx";
 import type { OpenChartsAdapter } from "./adapter/types.ts";
 import { chooseAdapter } from "./adapterChoice.ts";
 import { Terminal } from "./terminal/Terminal.tsx";
+import { BasicTerminal } from "./terminal/BasicTerminal.tsx";
 
 /**
  * The hosted app's root.
@@ -57,7 +58,7 @@ function BinanceOrDemo() {
   if (!adapter) return null;
   return (
     <OpenChartsProvider adapter={adapter}>
-      <Terminal />
+      {import.meta.env.VITE_BASIC_CHART === "1" ? <BasicTerminal /> : <Terminal />}
     </OpenChartsProvider>
   );
 }
