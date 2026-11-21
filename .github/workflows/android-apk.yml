@@ -1,4 +1,4 @@
-name: Bootstrap OpenCharts Android APK
+name: Build Basic Chart Android APK
 
 on:
   push:
@@ -9,75 +9,58 @@ permissions:
   contents: write
 
 concurrency:
-  group: android-apk-${{ github.ref }}
+  group: basic-chart-apk-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  bootstrap-and-build:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout viewchart
+      - name: Checkout Basic Chart
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Keep Android workflow and app feature overrides
+      - name: Preserve Basic Chart overrides
         run: |
-          mkdir -p /tmp/viewchart-workflows /tmp/viewchart-overrides
-          cp .github/workflows/android-apk.yml /tmp/viewchart-workflows/android-apk.yml
+          mkdir -p /tmp/basic-chart-overrides /tmp/basic-chart-workflows
+          cp .github/workflows/android-apk.yml /tmp/basic-chart-workflows/android-apk.yml
           for path in \
+            BASIC_CHART_VERSION \
             src/Root.tsx \
             src/terminal/BasicTerminal.tsx \
             src/pages/BasicChartPage.tsx \
-            src/adapterChoice.ts \
             src/adapter/provider.tsx \
             src/components/AdapterMarketDataBridge.tsx \
             src/components/ConnectionIndicator.tsx \
             examples/dnse-adapter/dnse-adapter.ts \
-            examples/binance-adapter/binance-adapter.ts \
-            src/pages/TradingPage.tsx \
-            src/pages/trading/BottomPanel.tsx \
-            src/components/trading-dialogs/TradeJournalPanel.tsx \
             src/pages/trading/ChartPanel.tsx \
             src/pages/trading/useIndicators.ts \
             src/lib/indicators.ts \
-            src/lib/pine-script-runtime.ts \
-            src/lib/pine-script-worker-client.ts \
-            src/lib/pine-script.worker.ts \
-            src/pages/trading/PineScriptEditor.tsx \
-            src/pages/trading/usePinePlots.ts \
-            examples/pine-scripts/opencharts-feature-test.pine \
-            scripts/test-pine-sample.ts \
             src/pages/trading/useReplayPlayback.ts \
             src/pages/trading/useReplayChartData.ts \
             src/services/replay.ts \
-            src/__tests__/engine.test.ts \
-            scripts/test-replay-session.ts \
             src/__tests__/dnse-adapter.test.ts \
-            src/__tests__/pine-strategy-stats.test.ts \
             src/__tests__/adapter.test.tsx \
             src/services/queries.ts \
             src/services/api.ts \
             src/services/store.tsx \
             src/terminal/context.tsx \
             src/terminal/use-terminal.ts \
-            src/pages/trading/ReplayHUD.tsx \
-            src/pages/trading/ReplayScrubber.tsx \
             src/services/demo/instruments.ts \
             src/services/demo/feed.ts \
             src/services/demo/engine.ts \
-            src/services/schemas.ts \
-            src/pages/trading/OrderPanel.tsx; do
-            mkdir -p "/tmp/viewchart-overrides/$(dirname "$path")"
-            cp "$path" "/tmp/viewchart-overrides/$path"
+            src/services/schemas.ts; do
+            mkdir -p "/tmp/basic-chart-overrides/$(dirname "$path")"
+            cp "$path" "/tmp/basic-chart-overrides/$path"
           done
 
-      - name: Import OpenCharts source
+      - name: Import clean upstream OpenCharts source
         run: |
           git clone --depth 1 https://github.com/dylanpersonguy/OpenCharts.git /tmp/opencharts
           rsync -a --delete --exclude='.git' --exclude='.github' /tmp/opencharts/ ./
           mkdir -p .github/workflows
-          cp /tmp/viewchart-workflows/android-apk.yml .github/workflows/android-apk.yml
+          cp /tmp/basic-chart-workflows/android-apk.yml .github/workflows/android-apk.yml
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -85,15 +68,12 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Apply Android mobile tools overlay
-        run: node .github/patches/patch-mobile-panels.mjs
-
-      - name: Restore OpenCharts app feature overrides
+      - name: Restore Basic Chart app and market-data overrides
         run: |
-          cp -a /tmp/viewchart-overrides/. ./
-          test -f examples/binance-adapter/binance-adapter.ts || { echo "::error::Binance adapter file missing after restore"; exit 1; }
-          grep -Fq 'PAXGUSDT' examples/binance-adapter/binance-adapter.ts || { echo "::error::PAXGUSDT mapping missing after restore"; exit 1; }
-          grep -Fq 'PAXGUSD' examples/binance-adapter/binance-adapter.ts || { echo "::error::PAXGUSD display symbol missing after restore"; exit 1; }
+          cp -a /tmp/basic-chart-overrides/. ./
+          test -f src/terminal/BasicTerminal.tsx
+          test -f src/pages/BasicChartPage.tsx
+          test -f examples/dnse-adapter/dnse-adapter.ts
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -121,62 +101,67 @@ jobs:
           npm pkg set scripts.android:open="cap open android"
           cat > capacitor.config.ts <<'EOF'
           import type { CapacitorConfig } from '@capacitor/cli';
-
           const config: CapacitorConfig = {
-            appId: 'com.cuong007.viewchart',
-            appName: 'OpenCharts',
+            appId: 'com.cuong007.basicchart',
+            appName: 'Basic Chart',
             webDir: 'dist',
-            android: {
-              allowMixedContent: false,
-            },
+            android: { allowMixedContent: false },
           };
-
           export default config;
           EOF
           npx cap add android
 
-      - name: Run full automated test suite
+      - name: Run automated tests
         run: npm run test
 
-      - name: Smoke test Pine Script sample with PineTS
-        run: npx tsx scripts/test-pine-sample.ts
-
-      - name: Smoke test replay session date boundaries
+      - name: Smoke test replay date boundaries
         run: npx tsx scripts/test-replay-session.ts
 
-      - name: Build web app (DNSE VN30F1M chart-only)
+      - name: Build chart-only web app
         env:
-          VITE_ADAPTER: dnse\n          VITE_BASIC_CHART: "1"
-          VITE_CSP_EXTRA_CONNECT: "https://api.binance.com https://data-api.binance.vision https://stream.binance.com:9443 wss://stream.binance.com:9443 wss://datafeed-krx.dnse.com.vn"
-          VITE_CSP_ALLOW_TRADINGVIEW: "1"
+          VITE_ADAPTER: dnse
+          VITE_BASIC_CHART: "1"
+          VITE_CSP_EXTRA_CONNECT: "https://datafeed-krx.dnse.com.vn"
         run: |
           npm run typecheck
           npm run build
 
-      - name: Sync web assets and build APK
+      - name: Build Android APK
         run: |
           npx cap sync android
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
+          cd ..
+          VERSION="$(tr -d '[:space:]' < BASIC_CHART_VERSION)"
+          cp android/app/build/outputs/apk/debug/app-debug.apk "basic-chart-v${VERSION}.apk"
 
-      - name: Commit imported source and Android project
+      - name: Commit imported upstream and Android project
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git fetch origin main
-          git reset --soft origin/main
-          git checkout origin/main -- .github
+          git fetch origin basic-chart-v1
+          git reset --soft origin/basic-chart-v1
+          git checkout origin/basic-chart-v1 -- .github
           git add -A
           if ! git diff --cached --quiet; then
-            git commit -m "Import OpenCharts and add Capacitor Android project"
+            git commit -m "Refresh upstream chart source for Basic Chart"
             git push origin HEAD:basic-chart-v1
           fi
 
-      - name: Upload openchart.apk
+      - name: Publish standalone APK release asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="$(tr -d '[:space:]' < BASIC_CHART_VERSION)"
+          TAG="basic-chart-v${VERSION}"
+          APK="basic-chart-v${VERSION}.apk"
+          gh release create "$TAG" "$APK" --target basic-chart-v1 --title "Basic Chart v${VERSION}" --notes "Standalone chart-only Android APK." || gh release upload "$TAG" "$APK" --clobber
+
+      - name: Upload APK as CI fallback
         uses: actions/upload-artifact@v4
         with:
-          name: openchart-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: basic-chart-v${{ github.run_number }}-apk
+          path: basic-chart-v*.apk
           if-no-files-found: error
           retention-days: 30
