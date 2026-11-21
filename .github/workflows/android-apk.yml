@@ -153,11 +153,3 @@ jobs:
           TAG="basic-chart-v${VERSION}"
           APK="basic-chart-v${VERSION}.apk"
           gh release create "$TAG" "$APK" --target basic-chart-v1 --title "Basic Chart v${VERSION}" --notes "Standalone chart-only Android APK." || gh release upload "$TAG" "$APK" --clobber
-
-      - name: Upload APK as CI fallback
-        uses: actions/upload-artifact@v4
-        with:
-          name: basic-chart-v${{ github.run_number }}-apk
-          path: basic-chart-v*.apk
-          if-no-files-found: error
-          retention-days: 30
