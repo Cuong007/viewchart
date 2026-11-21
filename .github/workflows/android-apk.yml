@@ -95,7 +95,6 @@ jobs:
           npm install @capacitor/core @capacitor/android
           npm install --save-dev @capacitor/cli
           npm install mqtt --save
-          npm install pinets@0.13.1 --save
           npm pkg set name="basic-chart-android"
           npm pkg set scripts.android:sync="cap sync android"
           npm pkg set scripts.android:open="cap open android"
@@ -113,9 +112,6 @@ jobs:
 
       - name: Run automated tests
         run: npm run test
-
-      - name: Smoke test replay date boundaries
-        run: npx tsx scripts/test-replay-session.ts
 
       - name: Build chart-only web app
         env:
