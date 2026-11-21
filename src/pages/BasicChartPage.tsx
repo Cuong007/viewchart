@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { useTerminal } from "../terminal/use-terminal.ts";
+import { updateChartPreferences } from "../hooks/useChartPreferences.ts";
 import { ChartPanel } from "./trading/ChartPanel.tsx";
 import { ChartToolbar } from "./trading/ChartToolbar.tsx";
 
@@ -45,7 +46,7 @@ export function BasicChartPage() {
         magnetMode={t.chartPrefs.magnetMode}
         onCycleMagnet={t.cycleMagnetMode}
         stayInDrawingMode={t.chartPrefs.stayInDrawingMode}
-        onToggleStayInDrawingMode={() => t.chartPrefs.update?.({ stayInDrawingMode: !t.chartPrefs.stayInDrawingMode })}
+        onToggleStayInDrawingMode={() => updateChartPreferences({ stayInDrawingMode: !t.chartPrefs.stayInDrawingMode })}
       />
       <div className="relative flex-1 min-h-0 w-full">
         <ChartPanel
