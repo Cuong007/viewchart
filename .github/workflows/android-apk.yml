@@ -2,7 +2,7 @@ name: Bootstrap OpenCharts Android APK
 
 on:
   push:
-    branches: [main]
+    branches: [basic-chart-v1]
   workflow_dispatch:
 
 permissions:
@@ -27,6 +27,8 @@ jobs:
           cp .github/workflows/android-apk.yml /tmp/viewchart-workflows/android-apk.yml
           for path in \
             src/Root.tsx \
+            src/terminal/BasicTerminal.tsx \
+            src/pages/BasicChartPage.tsx \
             src/adapterChoice.ts \
             src/adapter/provider.tsx \
             src/components/AdapterMarketDataBridge.tsx \
@@ -114,7 +116,7 @@ jobs:
           npm install --save-dev @capacitor/cli
           npm install mqtt --save
           npm install pinets@0.13.1 --save
-          npm pkg set name="viewchart-android"
+          npm pkg set name="basic-chart-android"
           npm pkg set scripts.android:sync="cap sync android"
           npm pkg set scripts.android:open="cap open android"
           cat > capacitor.config.ts <<'EOF'
@@ -142,9 +144,9 @@ jobs:
       - name: Smoke test replay session date boundaries
         run: npx tsx scripts/test-replay-session.ts
 
-      - name: Build web app (DNSE VN30F1M + Binance market data + paper trading)
+      - name: Build web app (DNSE VN30F1M chart-only)
         env:
-          VITE_ADAPTER: dnse
+          VITE_ADAPTER: dnse\n          VITE_BASIC_CHART: "1"
           VITE_CSP_EXTRA_CONNECT: "https://api.binance.com https://data-api.binance.vision https://stream.binance.com:9443 wss://stream.binance.com:9443 wss://datafeed-krx.dnse.com.vn"
           VITE_CSP_ALLOW_TRADINGVIEW: "1"
         run: |
@@ -168,7 +170,7 @@ jobs:
           git add -A
           if ! git diff --cached --quiet; then
             git commit -m "Import OpenCharts and add Capacitor Android project"
-            git push origin HEAD:main
+            git push origin HEAD:basic-chart-v1
           fi
 
       - name: Upload openchart.apk
