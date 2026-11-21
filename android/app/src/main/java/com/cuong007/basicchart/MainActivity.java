@@ -1,4 +1,4 @@
-package com.cuong007.viewchart;
+package com.cuong007.basicchart;
 
 import com.getcapacitor.BridgeActivity;
 

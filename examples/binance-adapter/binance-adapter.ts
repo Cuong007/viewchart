@@ -27,35 +27,16 @@ import type { Candle, Symbol } from "../../src/services/schemas.ts";
  *     `/api/v3/exchangeInfo` and derive tick sizes from the filters.
  */
 
-const REST_BASE = "https://data-api.binance.vision/api/v3";
+const REST_BASE = "https://api.binance.com/api/v3";
 const WS_BASE = "wss://stream.binance.com:9443/stream";
 
 /** Display name → Binance pair. USD here means USDT on Binance. */
 const SYMBOL_MAP: Record<string, { pair: string; label: string; tickSize: number }> = {
   BTCUSD: { pair: "BTCUSDT", label: "Bitcoin", tickSize: 0.01 },
-  PAXGUSD: { pair: "PAXGUSDT", label: "Gold · PAX Gold (1 troy oz)", tickSize: 0.01 },
   ETHUSD: { pair: "ETHUSDT", label: "Ethereum", tickSize: 0.01 },
   SOLUSD: { pair: "SOLUSDT", label: "Solana", tickSize: 0.01 },
   BNBUSD: { pair: "BNBUSDT", label: "BNB", tickSize: 0.01 },
   XRPUSD: { pair: "XRPUSDT", label: "XRP", tickSize: 0.0001 },
-  DOGEUSD: { pair: "DOGEUSDT", label: "Dogecoin", tickSize: 0.00001 },
-  LTCUSD: { pair: "LTCUSDT", label: "Litecoin", tickSize: 0.01 },
-  TRXUSD: { pair: "TRXUSDT", label: "TRON", tickSize: 0.0001 },
-  LINKUSD: { pair: "LINKUSDT", label: "Chainlink", tickSize: 0.001 },
-  AVAXUSD: { pair: "AVAXUSDT", label: "Avalanche", tickSize: 0.001 },
-  DOTUSD: { pair: "DOTUSDT", label: "Polkadot", tickSize: 0.001 },
-  BCHUSD: { pair: "BCHUSDT", label: "Bitcoin Cash", tickSize: 0.01 },
-  UNIUSD: { pair: "UNIUSDT", label: "Uniswap", tickSize: 0.001 },
-  NEARUSD: { pair: "NEARUSDT", label: "NEAR Protocol", tickSize: 0.001 },
-  APTUSD: { pair: "APTUSDT", label: "Aptos", tickSize: 0.001 },
-  ARBUSD: { pair: "ARBUSDT", label: "Arbitrum", tickSize: 0.0001 },
-  OPUSD: { pair: "OPUSDT", label: "Optimism", tickSize: 0.0001 },
-  SUIUSD: { pair: "SUIUSDT", label: "Sui", tickSize: 0.0001 },
-  TONUSD: { pair: "TONUSDT", label: "Toncoin", tickSize: 0.001 },
-  PEPEUSD: { pair: "PEPEUSDT", label: "Pepe", tickSize: 0.00000001 },
-  SHIBUSD: { pair: "SHIBUSDT", label: "Shiba Inu", tickSize: 0.00000001 },
-  XLMUSD: { pair: "XLMUSDT", label: "Stellar", tickSize: 0.0001 },
-  ETCUSD: { pair: "ETCUSDT", label: "Ethereum Classic", tickSize: 0.001 },
   ADAUSD: { pair: "ADAUSDT", label: "Cardano", tickSize: 0.0001 },
 };
 
@@ -166,41 +147,6 @@ export function createBinanceMarketData(options: BinanceOptions = {}): MarketDat
   let reconnectAttempt = 0;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let closedByUs = false;
-  let pollTimer: ReturnType<typeof setInterval> | null = null;
-  let pollInFlight = false;
-
-  const stopPolling = () => {
-    if (pollTimer) clearInterval(pollTimer);
-    pollTimer = null;
-  };
-
-  const pollQuotes = async () => {
-    if (pollInFlight || closedByUs) return;
-    pollInFlight = true;
-    try {
-      const results = await Promise.all(names.map(async (name) => {
-        const pair = toBinancePair(name);
-        if (!pair) return false;
-        const response = await doFetch(`${REST_BASE}/ticker/bookTicker?symbol=${pair}`);
-        if (!response.ok) return false;
-        const quote = await response.json() as { bidPrice?: string; askPrice?: string };
-        if (quote.bidPrice == null || quote.askPrice == null) return false;
-        emit({ type: "tick", symbol: name, bid: Number(quote.bidPrice), ask: Number(quote.askPrice), timestamp: Date.now() });
-        return true;
-      }));
-      setState(results.some(Boolean) ? "connected" : "reconnecting");
-    } catch {
-      setState("reconnecting");
-    } finally {
-      pollInFlight = false;
-    }
-  };
-
-  const startPolling = () => {
-    if (pollTimer || closedByUs) return;
-    void pollQuotes();
-    pollTimer = setInterval(() => void pollQuotes(), 3000);
-  };
 
   const setState = (next: ConnectionState) => {
     if (state === next) return;
@@ -232,7 +178,6 @@ export function createBinanceMarketData(options: BinanceOptions = {}): MarketDat
     socket = new SocketImpl(buildStreamUrl(names));
 
     socket.onopen = () => {
-      stopPolling();
       reconnectAttempt = 0;
       setState("connected");
     };
@@ -267,7 +212,6 @@ export function createBinanceMarketData(options: BinanceOptions = {}): MarketDat
       // Exponential backoff, capped — Binance drops idle sockets every 24h and
       // rate-limits reconnect storms.
       setState("reconnecting");
-      startPolling();
       const delay = Math.min(30_000, 1_000 * 2 ** reconnectAttempt);
       reconnectAttempt += 1;
       reconnectTimer = setTimeout(open, delay);
@@ -326,7 +270,6 @@ export function createBinanceMarketData(options: BinanceOptions = {}): MarketDat
     disconnect: () => {
       closedByUs = true;
       if (reconnectTimer) clearTimeout(reconnectTimer);
-      stopPolling();
       reconnectTimer = null;
       socket?.close();
       socket = null;

@@ -309,65 +309,6 @@ export const TradingViewEconomicCalendar = memo(function TradingViewEconomicCale
   );
 });
 
-
- // ── News Timeline Widget ─────────────────────────────────────
-interface TradingViewTimelineProps {
-  symbol?: string;
-  theme: "dark" | "light";
-  height?: number | string;
-  className?: string;
-}
-
-export const TradingViewTimeline = memo(function TradingViewTimeline({
-  symbol = "BINANCE:BTCUSDT",
-  theme,
-  height = 520,
-  className = "",
-}: TradingViewTimelineProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!isTradingViewAllowed() || !containerRef.current) return;
-    const container = containerRef.current;
-    safeClear(container);
-
-    const widgetDiv = document.createElement("div");
-    widgetDiv.className = "tradingview-widget-container__widget";
-    widgetDiv.style.height = "100%";
-    widgetDiv.style.width = "100%";
-    container.appendChild(widgetDiv);
-
-    const config = {
-      feedMode: "symbol",
-      symbol: mapSymbol(symbol),
-      isTransparent: true,
-      displayMode: "regular",
-      width: "100%",
-      height: "100%",
-      colorTheme: theme,
-      locale: "en",
-    };
-
-    const script = document.createElement("script");
-    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-timeline.js";
-    script.type = "text/javascript";
-    script.async = true;
-    script.textContent = JSON.stringify(config);
-    container.appendChild(script);
-
-    return () => safeClear(container);
-  }, [symbol, theme]);
-
-  return (
-    <div
-      ref={containerRef}
-      className={`tradingview-widget-container ${className}`}
-      style={{ height: typeof height === "number" ? `${height}px` : height, width: "100%" }}
-      aria-label={`Live market news for ${symbol}`}
-    />
-  );
-});
-
 // ── Mini Chart Widget ────────────────────────────────────────
 interface TradingViewMiniChartProps {
   symbol: string;

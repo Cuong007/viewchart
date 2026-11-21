@@ -41,7 +41,7 @@ export function originOf(url: string | undefined): string | undefined {
   if (!v) return undefined;
   try {
     const u = new URL(v);
-    return ["https:", "http:", "wss:", "ws:"].includes(u.protocol) ? u.origin : undefined;
+    return u.protocol === "https:" || u.protocol === "http:" ? u.origin : undefined;
   } catch {
     return undefined;
   }
@@ -66,7 +66,7 @@ export function buildCsp(opts: CspOptions = {}): string {
   const tv = opts.allowTradingView === true;
   const directives: string[] = [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-eval'${tv ? " https://s3.tradingview.com" : ""}`,
+    `script-src 'self'${tv ? " https://s3.tradingview.com" : ""}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data:",
     "font-src 'self'",

@@ -23,9 +23,8 @@ export function ReplayScrubber({ accountId }: { accountId: string }) {
   const sessionDate = replaySessionDate;
 
   const startMs = tickBuffer[0]?.t ?? null;
-  // Replay range ends at the final available candle, not the current wall clock.
   const endMs = tickBuffer[tickBuffer.length - 1]?.t ?? null;
-  const rangeMs = startMs != null && endMs != null ? Math.max(0, endMs - startMs) : 0;
+  const rangeMs = startMs != null && endMs != null ? endMs - startMs : 0;
 
   const thumbPct =
     replayCursorTimestamp != null && startMs != null && rangeMs > 0

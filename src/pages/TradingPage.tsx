@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { MobileAccountBar, MobileTradingPanel } from "../components/MobileTradingPanel.tsx";
 import { NewsFeed as MarketNewsFeed } from "../components/TradingPowerFeatures.tsx";
 import { TradingViewTechnicalAnalysis } from "../components/TradingViewWidgets.tsx";
-import type { CustomIndicatorDefinition, IndicatorType } from "../lib/indicators.ts";
-import type { PineExecutionResult } from "../lib/pine-script-runtime.ts";
+import type { IndicatorType } from "../lib/indicators.ts";
 import { safeStorage } from "../lib/safe-storage.ts";
 import type { PlaceOrderInput } from "../services/schemas.ts";
 import { updateChartPreferences } from "../hooks/useChartPreferences.ts";
@@ -50,8 +49,6 @@ export function TradingPage() {
     isReplaying,
     chartPrefs,
     activeIndicators,
-    indicatorParams,
-    updateIndicatorParam,
     toggleIndicator,
     clearIndicators: handleClearIndicators,
     activePlugins,
@@ -96,97 +93,19 @@ export function TradingPage() {
   // ── Layout state ──
   const [showIndicatorMenu, setShowIndicatorMenu] = useState(false);
   const [bottomTab, setBottomTab] = useState<
-    "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators" | "indicator-code" | "data-sources" | "pine-script" | "strategy-tester"
-  >(() => {
-    const saved = safeStorage.getItem("opencharts_bottom_tab");
-    const valid = ["positions", "orders", "history", "journal", "calendar", "news", "indicators", "indicator-code", "data-sources", "pine-script", "strategy-tester"];
-    return valid.includes(saved ?? "") ? saved as "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "indicators" | "indicator-code" | "data-sources" | "pine-script" | "strategy-tester" : "positions";
-  });
-  const [indicatorCodeOverrides, setIndicatorCodeOverrides] = useState<Partial<Record<IndicatorType, string>>>(() => {
-    try { return JSON.parse(safeStorage.getItem("opencharts_indicator_code") || "{}"); } catch { return {}; }
-  });
-  const [pineExecution, setPineExecution] = useState<PineExecutionResult | null>(null);
-  const [customIndicators, setCustomIndicators] = useState<CustomIndicatorDefinition[]>(() => {
-    try { return JSON.parse(safeStorage.getItem("opencharts_custom_indicators") || "[]"); } catch { return []; }
-  });
-  const saveIndicatorCode = (type: IndicatorType, code: string) => {
-    setIndicatorCodeOverrides((prev) => {
-      const next = { ...prev, [type]: code };
-      safeStorage.setItem("opencharts_indicator_code", JSON.stringify(next));
-      return next;
-    });
-  };
-  const persistCustomIndicators = (next: CustomIndicatorDefinition[]) => {
-    if (!safeStorage.setJSON("opencharts_custom_indicators", next)) {
-      console.error("Unable to persist custom indicators to local storage.");
-    }
-    return next;
-  };
-  const saveCustomIndicator = (name: string, code: string, existingId?: string) => {
-    const id = existingId || crypto.randomUUID();
-    const updated: CustomIndicatorDefinition = {
-      id, name: name.trim() || "Custom Indicator", code, color: "#a78bfa",
-    };
-    setCustomIndicators((prev) => persistCustomIndicators(
-      existingId
-        ? prev.map((item) => item.id === existingId ? { ...item, ...updated } : item)
-        : [...prev, { ...updated, enabled: false }],
-    ));
-  };
-  const toggleCustomIndicator = (id: string) => {
-    setCustomIndicators((prev) => persistCustomIndicators(
-      prev.map((item) => item.id === id ? { ...item, enabled: item.enabled !== true } : item),
-    ));
-  };
-  const deleteCustomIndicator = (id: string) => {
-    setCustomIndicators((prev) => {
-      const next = prev.filter((item) => item.id !== id);
-      return persistCustomIndicators(next);
-    });
-  };
-  const deleteIndicator = (type: IndicatorType) => {
-    if (activeIndicators.includes(type)) toggleIndicator(type);
-  };
+    "positions" | "orders" | "history" | "journal" | "calendar" | "news"
+  >("positions");
   const [rightPanel, setRightPanel] = useState<
     "order" | "dom" | "watchlist" | "news" | "tv-analysis"
-  >(() => {
-    const saved = safeStorage.getItem("opencharts_right_panel");
-    return saved === "order" || saved === "dom" || saved === "watchlist" || saved === "news" || saved === "tv-analysis" ? saved : "order";
-  });
-  const [showRightPanel, setShowRightPanel] = useState(() => safeStorage.getItem("opencharts_show_right_panel") !== "false");
+  >("order");
+  const [showRightPanel, setShowRightPanel] = useState(true);
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
-  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
 
   // ── Vertical resize: chart vs bottom panel ──
   const [bottomPanelHeight, setBottomPanelHeight] = useState(() => {
     const saved = safeStorage.getItem("bottomPanelHeight");
     return saved ? parseInt(saved, 10) : 220;
   });
-  // Persist the current workspace continuously and flush on Android app background/close.
-  useEffect(() => {
-    const saveWorkspace = () => {
-      safeStorage.setJSON("opencharts_workspace_v1", {
-        selectedSymbol: useTradingStore.getState().selectedSymbol,
-        timeframe,
-        bottomTab,
-        rightPanel,
-        showRightPanel,
-        bottomPanelHeight,
-      });
-      safeStorage.setItem("opencharts_bottom_tab", bottomTab);
-      safeStorage.setItem("opencharts_right_panel", rightPanel);
-      safeStorage.setItem("opencharts_show_right_panel", String(showRightPanel));
-      safeStorage.setItem("bottomPanelHeight", String(bottomPanelHeight));
-    };
-    saveWorkspace();
-    window.addEventListener("pagehide", saveWorkspace);
-    document.addEventListener("visibilitychange", saveWorkspace);
-    return () => {
-      window.removeEventListener("pagehide", saveWorkspace);
-      document.removeEventListener("visibilitychange", saveWorkspace);
-    };
-  }, [timeframe, bottomTab, rightPanel, showRightPanel, bottomPanelHeight]);
-
   const resizingRef = useRef(false);
   const resizeStartY = useRef(0);
   const resizeStartH = useRef(0);
@@ -234,40 +153,6 @@ export function TradingPage() {
     },
     [activeIndicators, toggleIndicator],
   );
-  const [managedInstruments, setManagedInstruments] = useState<Array<{ symbol: string; name: string; assetClass: string }>>(() => {
-    try {
-      const saved = JSON.parse(safeStorage.getItem("opencharts_managed_instruments_v1") || "null");
-      return Array.isArray(saved) ? saved : [
-        { symbol: "XAUUSD", name: "Vàng giao ngay", assetClass: "Kim loại" },
-        { symbol: "VN30F1M", name: "Hợp đồng tương lai VN30 tháng gần nhất", assetClass: "Phái sinh Việt Nam" },
-      ];
-    } catch { return []; }
-  });
-  useEffect(() => {
-    const refresh = () => {
-      try {
-        const saved = JSON.parse(safeStorage.getItem("opencharts_managed_instruments_v1") || "[]");
-        setManagedInstruments(Array.isArray(saved) ? saved : []);
-      } catch { setManagedInstruments([]); }
-    };
-    window.addEventListener("opencharts:instruments-updated", refresh);
-    window.addEventListener("storage", refresh);
-    return () => {
-      window.removeEventListener("opencharts:instruments-updated", refresh);
-      window.removeEventListener("storage", refresh);
-    };
-  }, []);
-  const selectableSymbols = [
-    ...symbols,
-    ...managedInstruments
-      .filter((item) => !symbols.some((existing) => existing.name === item.symbol))
-      .map((item) => ({
-        id: "managed:" + item.symbol,
-        name: item.symbol,
-        displayName: item.name,
-        category: item.assetClass,
-      })),
-  ];
   const ticks = useTradingStore((s) => s.ticks);
 
   return (
@@ -286,7 +171,7 @@ export function TradingPage() {
       {/* ── Top Toolbar ──────────────────────────────────── */}
       <ChartToolbar
         selectedSymbol={selectedSymbol}
-        symbols={selectableSymbols}
+        symbols={symbols}
         onSymbolChange={setSelectedSymbol}
         timeframe={timeframe}
         onTimeframeChange={handleTimeframeChange}
@@ -329,13 +214,9 @@ export function TradingPage() {
             <ChartPanel
               candles={replayCandles ?? candles ?? []}
               selectedSymbol={selectedSymbol}
-              timeframe={timeframe}
+              timeframe={replayCandles ? "1m" : timeframe}
               isDark={isDark}
               activeIndicators={activeIndicators}
-              indicatorParams={indicatorParams}
-              indicatorCodeOverrides={indicatorCodeOverrides}
-              customIndicators={customIndicators}
-              pineExecution={pineExecution}
               drawingTool={drawingTool}
               drawings={drawings}
               onAddDrawing={addDrawing}
@@ -393,20 +274,6 @@ export function TradingPage() {
             onSelectOrderSymbol={setSelectedSymbol}
             height={bottomPanelHeight}
             isFeedConnected={isFeedConnected}
-            activeIndicators={activeIndicators}
-            onToggleIndicator={toggleIndicator}
-            indicatorParams={indicatorParams}
-            onIndicatorParamChange={updateIndicatorParam}
-            indicatorCodeOverrides={indicatorCodeOverrides}
-            customIndicators={customIndicators}
-            onSaveIndicatorCode={saveIndicatorCode}
-            onSaveCustomIndicator={saveCustomIndicator}
-            onDeleteIndicator={deleteIndicator}
-            onDeleteCustomIndicator={deleteCustomIndicator}
-            onToggleCustomIndicator={toggleCustomIndicator}
-            pineCandles={replayCandles ?? candles ?? []}
-            pineExecution={pineExecution}
-            onPineExecution={setPineExecution}
             journalEntries={journalEntries}
             journalLoading={journalLoading}
             onCreateJournal={createJournal}
@@ -423,7 +290,6 @@ export function TradingPage() {
                 symbol={selectedSymbol}
                 symbolInfo={symbolInfo}
                 tick={tick}
-                isReplaying={isReplaying}
                 accountId={activeAccountId}
                 oneClick={oneClick}
                 onToggleOneClick={toggleOneClick}
@@ -449,7 +315,7 @@ export function TradingPage() {
             )}
             {rightPanel === "news" && (
               <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                <MarketNewsFeed symbol={selectedSymbol} theme={isDark ? "dark" : "light"} />
+                <MarketNewsFeed symbol={selectedSymbol} />
               </div>
             )}
             {rightPanel === "tv-analysis" && (
@@ -466,60 +332,6 @@ export function TradingPage() {
           </div>
         )}
       </div>
-
-      {/* OpenCharts mobile tools drawer: expose panels hidden by the desktop-only sidebar. */}
-      <div className="md:hidden fixed bottom-2 left-2 right-20 z-40 flex items-center gap-1 rounded-xl border border-border bg-card/95 p-1 shadow-lg backdrop-blur">
-        {([
-          ["watchlist", "Mã"],
-          ["dom", "DOM"],
-          ["news", "Tin"],
-          ["tv-analysis", "TA"],
-        ] as const).map(([panel, label]) => (
-          <button
-            key={panel}
-            type="button"
-            onClick={() => { setRightPanel(panel); setMobileToolsOpen(true); }}
-            className={"flex-1 rounded-lg px-2 py-2 text-xs font-medium transition-colors " + (rightPanel === panel && mobileToolsOpen ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted")}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {mobileToolsOpen && (
-        <div className="md:hidden fixed inset-0 z-[60] bg-black/50" onClick={() => setMobileToolsOpen(false)}>
-          <section
-            className="absolute inset-x-0 bottom-0 flex h-[78vh] flex-col rounded-t-2xl border-t border-border bg-card shadow-2xl safe-area-bottom"
-            onClick={(event) => event.stopPropagation()}
-            aria-label="OpenCharts mobile tools"
-          >
-            <div className="flex items-center justify-between border-b border-border px-4 py-3">
-              <span className="text-sm font-semibold">
-                {rightPanel === "watchlist" ? "Danh sách mã" : rightPanel === "dom" ? "Sổ lệnh DOM" : rightPanel === "news" ? "Tin thị trường" : "Phân tích kỹ thuật"}
-              </span>
-              <button type="button" onClick={() => setMobileToolsOpen(false)} className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted">Đóng</button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              {rightPanel === "dom" && <DOMPanel symbol={selectedSymbol} tick={tick} />}
-              {rightPanel === "watchlist" && (
-                <WatchlistPanel
-                  symbols={symbols}
-                  ticks={ticks}
-                  selectedSymbol={selectedSymbol}
-                  onSelect={(symbol) => { setSelectedSymbol(symbol); setMobileToolsOpen(false); }}
-                  oneClick={oneClick}
-                  accountId={activeAccountId}
-                  isFeedConnected={isFeedConnected}
-                />
-              )}
-              {rightPanel === "news" && <div className="space-y-2 p-2"><MarketNewsFeed symbol={selectedSymbol} theme={isDark ? "dark" : "light"} /></div>}
-              {rightPanel === "tv-analysis" && (
-                <TradingViewTechnicalAnalysis symbol={selectedSymbol} theme={isDark ? "dark" : "light"} interval={timeframe} width="100%" height="100%" />
-              )}
-            </div>
-          </section>
-        </div>
-      )}
 
       {/* ── Mobile Trading Panel (small screens only) ──── */}
       <div className="md:hidden">

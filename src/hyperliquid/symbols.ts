@@ -71,7 +71,7 @@ export function priceTickSize(price: number | undefined, szDecimals: number): nu
     price !== undefined && price > 0
       ? allowedPriceDecimals(price, szDecimals)
       : Math.max(0, HL_MAX_PERP_DECIMALS - szDecimals);
-  return Number((10 ** -decimals).toFixed(decimals));
+  return 10 ** -decimals;
 }
 
 /** Round `price` to the nearest multiple of `tick` (float-noise free). */

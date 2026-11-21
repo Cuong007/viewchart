@@ -9,35 +9,71 @@
  * were removed rather than left as a trap; build them against real data if the
  * panels are wanted back.
  */
-
-
+import { Clock, Globe } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Newspaper } from "lucide-react";
-import { TradingViewTimeline } from "./TradingViewWidgets.tsx";
+import { cn } from "@/lib/utils";
 
-export function NewsFeed({
-  symbol,
-  theme = "dark",
-}: {
-  symbol: string;
-  theme?: "dark" | "light";
-}) {
+// ── News feed (sample data) ──────────────────────────────────
+//
+// OpenCharts ships no news integration. These items are obviously-labelled
+// placeholders that show the shape of the panel; they are not attributed to
+// real outlets, because a demo must never look like a live wire.
+
+const SAMPLE_HEADLINES = [
+  { id: 1, title: "Central bank rate decision ahead", impact: "HIGH" as const, time: "2h ago" },
+  { id: 2, title: "Employment data exceeds expectations", impact: "MEDIUM" as const, time: "4h ago" },
+  { id: 3, title: "Price approaching a widely-watched level", impact: "LOW" as const, time: "6h ago" },
+  { id: 4, title: "Risk appetite improves across majors", impact: "MEDIUM" as const, time: "8h ago" },
+  { id: 5, title: "Volatility expected ahead of the next print", impact: "HIGH" as const, time: "12h ago" },
+];
+
+const IMPACT_COLORS = {
+  HIGH: "bg-red-500/10 text-red-500",
+  MEDIUM: "bg-yellow-500/10 text-yellow-500",
+  LOW: "bg-green-500/10 text-green-500",
+};
+
+export function NewsFeed({ symbol }: { symbol: string }) {
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="p-3 pb-2">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <Newspaper className="h-4 w-4 text-accent" />
-          Market News
-          <span className="ml-auto text-[9px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500">
-            Live feed
+    <Card>
+      <CardHeader className="p-3 pb-0">
+        <CardTitle className="text-sm flex items-center justify-between gap-2">
+          <span className="flex items-center gap-2">
+            <Globe className="h-4 w-4 text-accent" /> Market News
+          </span>
+          <span className="text-[9px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+            Sample data
           </span>
         </CardTitle>
-        <p className="text-[10px] text-muted-foreground">
-          Headlines and market stories for {symbol}, provided by TradingView.
-        </p>
       </CardHeader>
-      <CardContent className="p-0">
-        <TradingViewTimeline symbol={symbol} theme={theme} height={520} />
+      <CardContent className="p-3 pt-2 space-y-2">
+        <p className="text-[10px] text-muted-foreground">
+          Placeholder items for {symbol} — connect a news provider to make this live.
+        </p>
+        {SAMPLE_HEADLINES.map((item) => (
+          <div
+            key={item.id}
+            className="flex items-start gap-2 py-1.5 border-b border-border/30 last:border-0"
+          >
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium leading-tight line-clamp-2">{item.title}</p>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-[10px] text-muted-foreground">Sample</span>
+                <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                  <Clock className="h-2.5 w-2.5" /> {item.time}
+                </span>
+              </div>
+            </div>
+            <span
+              className={cn(
+                "text-[9px] font-medium px-1.5 py-0.5 rounded shrink-0",
+                IMPACT_COLORS[item.impact],
+              )}
+            >
+              {item.impact}
+            </span>
+          </div>
+        ))}
       </CardContent>
     </Card>
   );

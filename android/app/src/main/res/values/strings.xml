@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">OpenCharts</string>
-    <string name="title_activity_main">OpenCharts</string>
-    <string name="package_name">com.cuong007.viewchart</string>
-    <string name="custom_url_scheme">com.cuong007.viewchart</string>
+    <string name="app_name">Basic Chart</string>
+    <string name="title_activity_main">Basic Chart</string>
+    <string name="package_name">com.cuong007.basicchart</string>
+    <string name="custom_url_scheme">com.cuong007.basicchart</string>
 </resources>

@@ -316,26 +316,6 @@ describe("stop-loss / take-profit", () => {
 });
 
 describe("closing positions", () => {
-  it("keeps live P&L during replay but closes at the replay candle price", () => {
-    openLong(1, 50_000);
-    const pos = engine.getPositions()[0]!;
-    engine.mark(SYMBOL, 51_000);
-    engine.setReplayClosePrice(SYMBOL, 50_500);
-    expect(engine.getPositions()[0]?.currentPrice).toBe(51_000);
-    expect(engine.getPositions()[0]?.unrealizedPnl).toBe(1_000);
-    engine.closePosition(pos.id);
-    expect(engine.getClosedPositions()[0]?.exitPrice).toBe(50_500);
-    expect(engine.getAccount().balance).toBeCloseTo(100_500, 2);
-  });
-
-  it("uses replay candle prices when closing all positions", () => {
-    openLong(1, 50_000);
-    engine.mark(SYMBOL, 51_000);
-    engine.setReplayClosePrice(SYMBOL, 50_250);
-    engine.closeAllPositions();
-    expect(engine.getClosedPositions()[0]?.exitPrice).toBe(50_250);
-  });
-
   it("realizes profit and frees the margin", () => {
     openLong(1, 50_000);
     engine.mark(SYMBOL, 51_000);

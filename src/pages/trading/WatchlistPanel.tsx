@@ -82,7 +82,7 @@ function GenericWatchlistPanel({
   const filtered = useMemo(() => {
     return symbols
       .filter((s) => {
-        if (filter && !s.name.toLowerCase().includes(filter.toLowerCase()) && !(s.displayName || "").toLowerCase().includes(filter.toLowerCase())) return false;
+        if (filter && !s.name.toLowerCase().includes(filter.toLowerCase())) return false;
         if (selectedCat === "★") return favorites.has(s.name);
         if (selectedCat && selectedCat !== "★" && s.category !== selectedCat) return false;
         return s.isActive !== false;
@@ -144,9 +144,6 @@ function GenericWatchlistPanel({
         ))}
       </div>
       <div className="flex-1 overflow-y-auto">
-        {filtered.length === 0 && (
-          <div className="px-3 py-8 text-center text-xs text-muted-foreground">No instruments match your filter.</div>
-        )}
         {filtered.map((s) => {
           const t = ticks[s.name];
           const isFav = favorites.has(s.name);
@@ -187,7 +184,6 @@ function GenericWatchlistPanel({
                   e.stopPropagation();
                   toggleFavorite(s.name);
                 }}
-                aria-label={isFav ? "Remove " + s.name + " from favorites" : "Add " + s.name + " to favorites"}
                 className={cn(
                   "shrink-0 mr-1",
                   isFav ? "text-yellow-400" : "text-muted-foreground/20 hover:text-yellow-400/60",
@@ -206,7 +202,7 @@ function GenericWatchlistPanel({
                     <div className="text-sell">{formatNumber(t.ask, 5)}</div>
                   </div>
                   {oneClick && (
-                    <div className="flex flex-col gap-0.5 ml-1 md:opacity-0 md:group-hover:opacity-100">
+                    <div className="hidden group-hover:flex flex-col gap-0.5 ml-1">
                       <button
                         onClick={() => handleQuickTrade("BUY")}
                         className="px-1 py-0.5 text-[8px] rounded bg-buy/20 text-buy hover:bg-buy/30 font-semibold"

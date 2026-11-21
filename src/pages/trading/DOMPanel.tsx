@@ -1,11 +1,30 @@
-import { lazy, Suspense, useEffect, useState } from "react";
-import { formatNumber } from "../../lib/utils.ts";
+import { lazy, Suspense, useMemo } from "react";
+import { formatNumber, cn } from "../../lib/utils.ts";
 import { isHyperliquidMode } from "../../hyperliquid/ui/mode.ts";
 
 // Live brokers show the real book; loaded on demand so the demo bundle is unchanged.
 const HlDepthPanel = lazy(() =>
   import("../../hyperliquid/ui/HlDepthPanel.tsx").then((m) => ({ default: m.HlDepthPanel })),
 );
+
+/**
+ * Deterministic pseudo-random depth for a price level.
+ *
+ * The bundled market data carries no order book, so ladder sizes are
+ * simulated. Deriving them from the price level (rather than Math.random on
+ * every render) keeps a level's size stable while the price hovers, so the
+ * ladder no longer reshuffles every tick — and the component stays pure.
+ */
+function depthAt(symbol: string, price: number, spread: number, base: number, range: number): number {
+  // Bucket by tick so tiny float noise does not reshuffle the book.
+  const bucket = spread > 0 ? Math.round(price / spread) : Math.round(price);
+  let hash = 2166136261 ^ bucket;
+  for (let i = 0; i < symbol.length; i += 1) {
+    hash = Math.imul(hash ^ symbol.charCodeAt(i), 16777619);
+  }
+  const unit = ((hash >>> 0) % 1000) / 1000;
+  return Math.floor(unit * range + base);
+}
 
 export function DOMPanel(props: { symbol: string; tick?: { bid: number; ask: number } }) {
   if (isHyperliquidMode()) {
@@ -15,128 +34,117 @@ export function DOMPanel(props: { symbol: string; tick?: { bid: number; ask: num
       </Suspense>
     );
   }
-  return <BinanceDOMPanel symbol={props.symbol} />;
+  return <SimulatedDOMPanel {...props} />;
 }
 
+function SimulatedDOMPanel({
+  symbol,
+  tick,
+}: {
+  symbol: string;
+  tick?: { bid: number; ask: number };
+}) {
+  const levels = useMemo(() => {
+    if (!tick) return [];
+    const mid = (tick.bid + tick.ask) / 2;
+    const step = tick.ask - tick.bid || 0.0001;
+    const result: Array<{
+      price: number;
+      bidSize: number;
+      askSize: number;
+      type: "bid" | "ask";
+    }> = [];
 
-type BinanceDepth = { bids: [string, string][]; asks: [string, string][]; lastUpdateId?: number };
+    for (let i = 10; i >= 1; i--) {
+      const price = mid + step * i;
+      result.push({
+        price,
+        bidSize: 0,
+        askSize: depthAt(symbol, price, step, 5, 50),
+        type: "ask",
+      });
+    }
+    result.push({
+      price: tick.ask,
+      bidSize: 0,
+      askSize: depthAt(symbol, tick.ask, step, 20, 100),
+      type: "ask",
+    });
+    result.push({
+      price: tick.bid,
+      bidSize: depthAt(symbol, tick.bid, step, 20, 100),
+      askSize: 0,
+      type: "bid",
+    });
+    for (let i = 1; i <= 10; i++) {
+      const price = mid - step * i;
+      result.push({
+        price,
+        bidSize: depthAt(symbol, price, step, 5, 50),
+        askSize: 0,
+        type: "bid",
+      });
+    }
+    return result;
+  }, [symbol, tick]);
 
-function BinanceDOMPanel({ symbol }: { symbol: string }) {
-  const pair = symbol.replace(/USD$/, "USDT").toLowerCase();
-  const [book, setBook] = useState<BinanceDepth | null>(null);
-  const [connected, setConnected] = useState(false);
-  const [snapshotAt, setSnapshotAt] = useState<number | null>(null);
+  const maxSize = Math.max(...levels.map((l) => Math.max(l.bidSize, l.askSize)), 1);
 
-  useEffect(() => {
-    let active = true;
-    let socket: WebSocket | null = null;
-    let poll: ReturnType<typeof setInterval> | null = null;
-    const endpoint = "https://data-api.binance.vision/api/v3/depth?symbol=" + pair.toUpperCase() + "&limit=20";
-    const loadSnapshot = async () => {
-      try {
-        const response = await fetch(endpoint);
-        if (!response.ok) throw new Error("Depth snapshot unavailable");
-        const data = await response.json() as BinanceDepth;
-        if (active) {
-          setBook(data);
-          setSnapshotAt(Date.now());
-        }
-      } catch {
-        if (active) setConnected(false);
-      }
-    };
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-    let reconnectDelay = 1000;
-    const connect = () => {
-      if (!active) return;
-      try {
-        socket = new WebSocket("wss://stream.binance.com:9443/ws/" + pair + "@depth20@100ms");
-        socket.onopen = () => {
-          if (!active) return;
-          reconnectDelay = 1000;
-          setConnected(true);
-        };
-        socket.onmessage = (event) => {
-          try {
-            const data = JSON.parse(String(event.data)) as BinanceDepth;
-            if (active && Array.isArray(data.bids) && Array.isArray(data.asks)) {
-              setBook({ bids: data.bids, asks: data.asks, lastUpdateId: data.lastUpdateId });
-              setSnapshotAt(Date.now());
-            }
-          } catch { /* Ignore malformed depth frames. */ }
-        };
-        socket.onerror = () => {
-          if (active) setConnected(false);
-          socket?.close();
-        };
-        socket.onclose = () => {
-          if (!active) return;
-          setConnected(false);
-          reconnectTimer = setTimeout(connect, reconnectDelay);
-          reconnectDelay = Math.min(reconnectDelay * 2, 30000);
-        };
-      } catch {
-        if (active) {
-          setConnected(false);
-          reconnectTimer = setTimeout(connect, reconnectDelay);
-          reconnectDelay = Math.min(reconnectDelay * 2, 30000);
-        }
-      }
-    };
-    void loadSnapshot();
-    connect();
-    poll = setInterval(() => {
-      if (!socket || socket.readyState !== WebSocket.OPEN) void loadSnapshot();
-    }, 3000);
-    return () => {
-      active = false;
-      if (poll) clearInterval(poll);
-      if (reconnectTimer) clearTimeout(reconnectTimer);
-      socket?.close();
-    };
-  }, [pair]);
-
-  const bids = book?.bids ?? [];
-  const asks = book?.asks ?? [];
-  const rows = Math.max(bids.length, asks.length, 1);
-  const maxQty = Math.max(1, ...bids.map((x) => Number(x[1])), ...asks.map((x) => Number(x[1])));
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-border bg-secondary px-3 py-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Depth of Market · Binance</h3>
-        <span className={connected ? "text-xs text-buy" : book ? "text-xs text-amber-500" : "text-xs text-muted-foreground"}>
-          {connected ? "LIVE · WS" : book ? "REST · Dự phòng" : "OFFLINE"}
-        </span>
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-secondary">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Depth of Market
+        </h3>
+        <span className="text-xs font-semibold">{symbol}</span>
       </div>
-      <div className="flex items-center justify-between px-3 py-1 text-[10px] text-muted-foreground">
-        <span>{symbol.replace(/USD$/, "/USDT")}</span>
-        <span>{book ? "Top 20 · Cập nhật " + (snapshotAt ? new Date(snapshotAt).toLocaleTimeString() : "—") : "Đang tải order book…"}</span>
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto">
         <table className="w-full text-[11px]">
-          <thead className="sticky top-0 z-10 bg-card"><tr>
-            <th className="w-[30%] text-right">Bid Qty</th><th className="w-[40%] text-center">Price</th><th className="w-[30%] text-left">Ask Qty</th>
-          </tr></thead>
+          <thead className="sticky top-0 bg-card z-10">
+            <tr>
+              <th className="text-right w-[30%]">Bid Size</th>
+              <th className="text-center w-[40%]">Price</th>
+              <th className="text-left w-[30%]">Ask Size</th>
+            </tr>
+          </thead>
           <tbody>
-            {Array.from({ length: rows }, (_, i) => {
-              const ask = asks[i]; const bid = bids[i];
-              return <tr key={i} className="relative hover:bg-secondary/50">
-                <td className="relative text-right text-buy">
-                  {bid && <><span className="relative z-[1]">{Number(bid[1]).toLocaleString(undefined, { maximumFractionDigits: 5 })}</span><div className="absolute inset-y-0 right-0 bg-buy/20" style={{ width: (Number(bid[1]) / maxQty * 100) + "%" }} /></>}
+            {levels.map((l, i) => (
+              <tr key={i} className="relative hover:bg-secondary/50">
+                <td className="text-right relative">
+                  {l.bidSize > 0 && (
+                    <>
+                      <div
+                        className="absolute inset-y-0 right-0 bg-buy/20"
+                        style={{ width: `${(l.bidSize / maxSize) * 100}%` }}
+                      />
+                      <span className="relative text-buy">{l.bidSize}</span>
+                    </>
+                  )}
                 </td>
-                <td className="text-center font-mono">
-                  {bid && <div className="text-buy">{formatNumber(Number(bid[0]), 8)}</div>}
-                  {ask && <div className="text-sell">{formatNumber(Number(ask[0]), 8)}</div>}
+                <td
+                  className={cn(
+                    "text-center font-mono",
+                    l.type === "ask" ? "text-sell" : "text-buy",
+                  )}
+                >
+                  {formatNumber(l.price, 5)}
                 </td>
-                <td className="relative text-left text-sell">
-                  {ask && <><span className="relative z-[1]">{Number(ask[1]).toLocaleString(undefined, { maximumFractionDigits: 5 })}</span><div className="absolute inset-y-0 left-0 bg-sell/20" style={{ width: (Number(ask[1]) / maxQty * 100) + "%" }} /></>}
+                <td className="text-left relative">
+                  {l.askSize > 0 && (
+                    <>
+                      <div
+                        className="absolute inset-y-0 left-0 bg-sell/20"
+                        style={{ width: `${(l.askSize / maxSize) * 100}%` }}
+                      />
+                      <span className="relative text-sell">{l.askSize}</span>
+                    </>
+                  )}
                 </td>
-              </tr>;
-            })}
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
     </div>
   );
 }
-

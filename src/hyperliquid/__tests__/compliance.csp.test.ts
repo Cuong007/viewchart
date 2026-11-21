@@ -9,12 +9,12 @@ describe("csp", () => {
 
   it("locks scripts to self and denies the dangerous defaults", () => {
     const csp = buildCsp();
-    expect(directive(csp, "script-src")).toEqual(["'self'", "'unsafe-eval'"]);
+    expect(directive(csp, "script-src")).toEqual(["'self'"]);
     expect(directive(csp, "object-src")).toEqual(["'none'"]);
     expect(directive(csp, "base-uri")).toEqual(["'self'"]);
     expect(directive(csp, "form-action")).toEqual(["'none'"]);
     expect(directive(csp, "frame-src")).toEqual(["'none'"]);
-    expect(csp).not.toMatch(/script-src[^;]*unsafe-inline/);
+    expect(csp).not.toMatch(/unsafe-eval|script-src[^;]*unsafe-inline/);
   });
 
   it("frame-ancestors is header-only", () => {
