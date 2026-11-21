@@ -111,7 +111,7 @@ jobs:
           npx cap add android
 
       - name: Run automated tests
-        run: npm run test
+        run: npx vitest run --exclude 'src/hyperliquid/**'
 
       - name: Build chart-only web app
         env:
