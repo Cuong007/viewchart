@@ -1,76 +1,29 @@
-import { lazy, Suspense, useEffect, useState } from "react";
-import { createDemoAdapter } from "./adapter/demo.ts";
+import { useEffect, useState } from "react";
 import { OpenChartsProvider } from "./adapter/provider.tsx";
 import type { OpenChartsAdapter } from "./adapter/types.ts";
-import { chooseAdapter } from "./adapterChoice.ts";
 import { BasicTerminal } from "./terminal/BasicTerminal.tsx";
-const Terminal = lazy(() => import("./terminal/Terminal.tsx").then((m) => ({ default: m.Terminal })));
-import { BasicTerminal } from "./terminal/BasicTerminal.tsx";
-
-/**
- * The hosted app's root.
- *
- * Deliberately what an integrator would write: install an adapter, render the
- * terminal. Everything else — query cache, market-data stream, notifications,
- * error boundary — comes from `<OpenChartsProvider>`.
- *
- * Which backend runs is chosen at build time:
- *  - `VITE_ADAPTER=hyperliquid`, or no `VITE_ADAPTER` with `VITE_HL_BUILDER_ADDRESS`
- *    set: the Hyperliquid broker (live markets, real wallet, real orders).
- *  - `VITE_ADAPTER=binance`: the live-market-data example from examples/binance-adapter.
- *  - `VITE_ADAPTER=demo`, or nothing configured: the bundled demo data.
- *
- * The Hyperliquid and Binance code is loaded lazily, so neither reaches the
- * default (demo) bundle.
- */
-
-const choice = chooseAdapter(import.meta.env);
-
-const HyperliquidApp = lazy(() => import("./hyperliquid/ui/HyperliquidApp.tsx"));
 
 function Loading() {
-  return (
-    <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
-      Loading…
-    </div>
-  );
+  return <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">Loading VN30F1M chart…</div>;
 }
 
-function BinanceOrDemo() {
-  const wantsBinance = choice === "binance";
-  const wantsDnse = choice === "dnse";
-  const [adapter, setAdapter] = useState<OpenChartsAdapter | null>(() =>
-    wantsBinance || wantsDnse ? null : createDemoAdapter(),
-  );
+/** Standalone, read-only chart app. No trading gateway is installed. */
+export function Root() {
+  const [adapter, setAdapter] = useState<OpenChartsAdapter | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!wantsBinance && !wantsDnse) return;
-    const loadAdapter = wantsDnse
-      ? import("../examples/dnse-adapter/dnse-adapter.ts").then(({ createDnseMarketDataAdapter }) => createDnseMarketDataAdapter())
-      : import("../examples/binance-adapter/binance-adapter.ts").then(({ createBinancePaperAdapter }) => createBinancePaperAdapter());
-    loadAdapter
-      .then(setAdapter)
-      .catch((err: unknown) => {
-        console.error("[opencharts] failed to load the Binance adapter; using the demo", err);
-        setAdapter(createDemoAdapter());
+    let cancelled = false;
+    import("../examples/dnse-adapter/dnse-adapter.ts")
+      .then(({ createDnseMarketDataAdapter }) => createDnseMarketDataAdapter())
+      .then((value) => { if (!cancelled) setAdapter(value); })
+      .catch((reason: unknown) => {
+        if (!cancelled) setError(reason instanceof Error ? reason.message : String(reason));
       });
-  }, [wantsBinance, wantsDnse]);
+    return () => { cancelled = true; };
+  }, []);
 
-  if (!adapter) return null;
-  return (
-    <OpenChartsProvider adapter={adapter}>
-      {import.meta.env.VITE_BASIC_CHART === "1" ? <BasicTerminal /> : {import.meta.env.VITE_BASIC_CHART === "1" ? <BasicTerminal /> : <Terminal /> }}
-    </OpenChartsProvider>
-  );
-}
-
-export function Root() {
-  if (choice === "hyperliquid") {
-    return (
-      <Suspense fallback={<Loading />}>
-        <HyperliquidApp />
-      </Suspense>
-    );
-  }
-  return <BinanceOrDemo />;
+  if (error) return <div role="alert" className="p-4 text-sm text-red-500">Không thể kết nối nguồn dữ liệu DNSE: {error}</div>;
+  if (!adapter) return <Loading />;
+  return <OpenChartsProvider adapter={adapter}><BasicTerminal /></OpenChartsProvider>;
 }
